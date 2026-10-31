@@ -137,7 +137,7 @@ class Slope(Narrated):
         o = Dot(ax.c2p(0, 0), color=GREEN_C, radius=0.13).set_z_index(2)
         eq = always_redraw(lambda: F(f'<i>y</i> = <span fgcolor="{M_COL}">{coef(m.get_value())}</span><i>x</i>', 56)
                            .to_edge(RIGHT, buff=1.4).shift(UP * 1.6))
-        with self.voice("עכשיו נכיר פונקציה מיוחדת: וואי שווה אם איקס. המספר אם הוא השיפוע. "
+        with self.voice("עכשיו נכיר פונקציה מיוחדת: וואי שווה אֶם איקס. המספר אֶם הוא השיפוע. "
                         "שים לב מה קורה כשמשנים אותו.") as d:
             self.play(FadeIn(plane), Create(ax), run_time=1.2)
             self.play(Create(line), FadeIn(eq), run_time=1.5)
@@ -151,7 +151,7 @@ class Slope(Narrated):
             self.play(FadeIn(lab), run_time=0.6)
             self.play(m.animate.set_value(1.5), run_time=1.2)
         why = R("כי כש־", "<i>x</i> = 0", "גם", "<i>y</i> = <i>m</i> · 0 = 0", size=32, color=GREEN_C).to_edge(RIGHT, buff=0.6).shift(DOWN * 0.4)
-        with self.voice("למה? כי כשאיקס שווה אפס, וואי שווה אם כפול אפס, וזה תמיד אפס.") as d:
+        with self.voice("למה? כי כשאיקס שווה אפס, וואי שווה אֶם כפול אפס, וזה תמיד אפס.") as d:
             self.play(FadeIn(why, shift=UP * 0.2), run_time=1)
         self.play(*[FadeOut(mob) for mob in self.mobjects if mob is not self.title])
 
@@ -226,7 +226,7 @@ class Slope(Narrated):
             R("יחס ישר: פי", "2", "בכמות = פי", "2", "במחיר, והמנה קבועה", size=36, color=GREEN_C),
         ).arrange(DOWN, buff=0.4, aligned_edge=RIGHT).next_to(head, DOWN, buff=0.6)
         with self.voice("מה לזכור? שיפוע הוא כמה עלינו, חלקי כמה הלכנו ימינה. קו עולה, שיפוע חיובי. קו יורד, שיפוע שלילי. "
-                        "הפונקציה וואי שווה אם איקס היא קו ישר דרך ראשית הצירים. "
+                        "הפונקציה וואי שווה אֶם איקס היא קו ישר דרך ראשית הצירים. "
                         "וזה בדיוק יחס ישר: כשכמות גדלה פי שתיים, גם המחיר גדל פי שתיים.") as d:
             self.play(FadeIn(head), run_time=0.8)
             for ln in lines:

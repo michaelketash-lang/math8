@@ -9,8 +9,12 @@
 """
 import asyncio
 import hashlib
+import json
+import os
+import sys
 import re
 import subprocess
+import time
 import wave
 from contextlib import contextmanager
 from pathlib import Path
@@ -42,7 +46,13 @@ PRON = {
     "נגדיות": "נֶגְדִּיּוֹת", "נחתכים": "נֶחְתָּכִים", "וקפל": "וְקַפֵּל", "יונח": "יוּנַח",
     "רצת": "רַצְתָּ", "שוות": "שָׁווֹת", "והרוחב": "וְהָרֹחַב",
     "קווית": "קַוִּית", "הקווית": "הַקַּוִּית", "שיפוע": "שִׁפּוּעַ", "השיפוע": "הַשִּׁפּוּעַ", "בשיפוע": "בַּשִּׁפּוּעַ",
+    # נמצאו ב־pron_audit.py ואומתו בזיהוי פונמות: בלי ניקוד הקול אמר "שַׁחַק", "נָשִׁים", "וּפְלִי"
+    "שחק": "שַׂחֵק", "נשים": "נָשִׂים", "ופלי": "וּפָּלִי",
+    # "נִסָּה"/"וְנִסָּה" (ניסה בעבר) במקום ציווי, "נַעֲשָׂה" במקום "נַעֲשֶׂה", "גוּר" במקום "גְּרוֹר"
+    "נסה": "נַסֵּה", "ונסה": "וְנַסֵּה", "נעשה": "נַעֲשֶׂה", "גרור": "גְּרוֹר",
 }
+# 11–19 בנקבה: בלי ניקוד הקול אמר "שתים עֲשָׂרָה" במקום "שתים עֶשְׂרֵה"
+_TEEN_RE = re.compile(r"((?:אחת|שתים|שלוש|ארבע|חמש|שש|שבע|שמונה|תשע) )עשרה(?![֐-׿])")
 def add_pron(extra):
     """מוסיף ניקוד לקריינות (לקרוא בראש קובץ הסרטון, לפני הקריינות הראשונה)."""
     global _PRON_RE
@@ -59,11 +69,21 @@ VOICE = "he-IL-AvriNeural"
 
 def tts(text):
     """Hebrew neural voiceover via edge-tts (online), cached by text hash. Returns (path, seconds)."""
-    text = _PRON_RE.sub(lambda m: PRON[m.group(1)], text)
+    raw, text = text, _PRON_RE.sub(lambda m: PRON[m.group(1)], _TEEN_RE.sub("\\1עֶשְׂרֵה", text))
     path = AUDIO_DIR / (hashlib.md5((VOICE + text).encode()).hexdigest()[:12] + ".wav")
+    if os.environ.get("NARRATION_LOG"):  # pron_audit.py collects every narration line this way
+        with open(os.environ["NARRATION_LOG"], "a") as f:
+            f.write(json.dumps({"file": sys.argv[-2] if len(sys.argv) > 1 else "", "raw": raw, "tts": text, "wav": path.name}, ensure_ascii=False) + "\n")
     if not path.exists():
         mp3 = path.with_suffix(".mp3")
-        asyncio.run(edge_tts.Communicate(text, VOICE, rate="-5%").save(str(mp3)))
+        for attempt in range(8):  # the service rate-limits bursts with NoAudioReceived
+            try:
+                asyncio.run(edge_tts.Communicate(text, VOICE, rate="-5%").save(str(mp3)))
+                break
+            except edge_tts.exceptions.NoAudioReceived:
+                if attempt == 7:
+                    raise
+                time.sleep(15 * (attempt + 1))
         # the neural voice pauses ~1.1s between sentences; cap every pause at 0.6s
         trim = "silenceremove=stop_periods=-1:stop_duration=0.6:stop_threshold=-40dB:detection=peak"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(mp3), "-af", trim, "-ar", "24000", str(path)],

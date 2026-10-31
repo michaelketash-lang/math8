@@ -98,14 +98,14 @@ class Congruence(Narrated):
                 self.play(FadeIn(w1[i]), FadeIn(w2[i]), run_time=0.7)
         note = F("△ABC ≅ △DEF", 56).move_to([0, 3.25, 0])
         arrows = VGroup()
-        with self.voice("כותבים את זה כך: משולש איי בי סי חופף למשולש די אי אף. "
+        with self.voice("כותבים את זה כך: משולש איי בי סי חופף למשולש די אי אֶף. "
                         "והסדר חשוב! האות הראשונה מתאימה לראשונה, השנייה לשנייה, והשלישית לשלישית.") as d:
             self.play(Write(note), run_time=2)
             pairs = [("A", "D"), ("B", "E"), ("C", "F")]
             for k, col in zip(range(3), (YELLOW, TEAL, PINK)):
                 self.play(Indicate(n1[k], color=col, scale_factor=1.6), Indicate(n2[k], color=col, scale_factor=1.6), run_time=1)
         rule = VGroup(F("AB = DE", 36, OR), F("BC = EF", 36, GN), F("∠A = ∠D", 36, YELLOW)).arrange(RIGHT, buff=0.8).to_edge(DOWN, buff=0.4)
-        with self.voice("כך יודעים מי שווה למי: איי בי שווה לדי אי, בי סי שווה לאי אף, וזווית איי שווה לזווית די.") as d:
+        with self.voice("כך יודעים מי שווה למי: איי בי שווה לדי אי, בי סי שווה לְאִי אֶף, וזווית איי שווה לזווית די.") as d:
             for m in rule:
                 self.play(FadeIn(m, shift=UP * 0.2), run_time=1)
                 self.wait(0.5)
@@ -286,7 +286,7 @@ class Congruence(Narrated):
             self.play(FadeIn(Dot(M, color=RD)), FadeIn(mlab), Create(med), run_time=1.5)
         tk = VGroup(ticks(B, M, 1), ticks(M, C, 1))
         eq = F("BM = MC", 40, YELLOW).next_to(d1, DOWN, buff=0.45)
-        with self.voice("לכן התיכון מחלק את הצלע לשני חלקים שווים: בי אם שווה לאם סי.") as d:
+        with self.voice("לכן התיכון מחלק את הצלע לשני חלקים שווים: בי אֶם שווה לְאֶם סי.") as d:
             self.play(Create(tk), run_time=1)
             self.play(Write(eq), run_time=1.5)
         h1 = Polygon(A, B, M, color=OR, fill_opacity=0.45, stroke_width=0)

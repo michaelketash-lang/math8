@@ -145,7 +145,7 @@ class Similarity(Narrated):
             self.play(Indicate(kbox, color=YELLOW), run_time=1.2)
 
         note = MT("△<i>ABC</i>  ∼  △<i>DEF</i>", 44).next_to(kbox, DOWN, buff=0.45).align_to(kbox, RIGHT)
-        with self.voice("כותבים: משולש איי בי סי דומה למשולש די אי אף. הסדר של האותיות חשוב: "
+        with self.voice("כותבים: משולש איי בי סי דומה למשולש די אי אֶף. הסדר של האותיות חשוב: "
                         "איי מתאים לדי, בי מתאים לאי, וסי מתאים לאף.") as d:
             self.play(Write(note), run_time=1.5)
             for i in range(3):

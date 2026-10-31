@@ -11,3 +11,4 @@ video/*.mp4
 # טקסט שחולץ ממדריך המורה (זכויות יוצרים של הוצאת ארכימדס) — לא לפרסם
 docs/guide-goals.txt
 video/media/
+video/models/

@@ -164,8 +164,8 @@ class Linear(Narrated):
     def fx(self):
         f = EQ(2, 10, 60, fx=True).shift(UP * 2)
         q = MarkupText("<i>f</i>(3) = ?", font=MATH, font_size=56).next_to(f, DOWN, buff=0.8)
-        with self.voice("יש עוד דרך לכתוב פונקציה: אף של איקס. "
-                        "אף של שלוש אומר: מה יוצא כשמציבים שלוש במקום איקס?") as d:
+        with self.voice("יש עוד דרך לכתוב פונקציה: אֶף של איקס. "
+                        "אֶף של שלוש אומר: מה יוצא כשמציבים שלוש במקום איקס?") as d:
             self.play(Write(f), run_time=2)
             self.play(FadeIn(q, shift=UP * 0.3), run_time=1)
 
@@ -182,7 +182,7 @@ class Linear(Narrated):
 
         q2 = MarkupText("<i>f</i>(<i>x</i>) = 20  →  <i>x</i> = ?", font=MATH, font_size=52).next_to(f, DOWN, buff=0.8)
         e1 = MarkupText("2<i>x</i> + 10 = 20", font=MATH, font_size=52).next_to(q2, DOWN, buff=0.5)
-        with self.voice("ומה אם שואלים הפוך: מתי אף של איקס שווה עשרים? עכשיו אנחנו יודעים את התוצאה, "
+        with self.voice("ומה אם שואלים הפוך: מתי אֶף של איקס שווה עשרים? עכשיו אנחנו יודעים את התוצאה, "
                         "ומחפשים את האיקס. כותבים משוואה: שתיים איקס ועוד עשר, שווה עשרים.") as d:
             self.play(FadeIn(q2, shift=UP * 0.3), run_time=1)
             self.wait(max(d - 3.5, 0.5))
@@ -205,9 +205,9 @@ class Linear(Narrated):
         m_line = R("<i>m</i> =", "השיפוע: בכמה עולים בכל צעד ימינה", size=36, color=M_COL).next_to(eq, DOWN, buff=0.7)
         b_line = R("<i>b</i> =", "החיתוך עם ציר ה־", "<i>y</i>", ", בנקודה", "(0, <i>b</i>)", size=36, color=B_COL).next_to(m_line, DOWN, buff=0.35)
         f_line = R("<i>f</i>(3) =", "מציבים", "3", "במקום", "<i>x</i>", "ומחשבים", size=36).next_to(b_line, DOWN, buff=0.35)
-        with self.voice("אז מה למדנו? פונקציה קווית היא וואי שווה אם איקס ועוד בי. "
-                        "אם הוא השיפוע: בכמה עולים בכל צעד ימינה. בי הוא נקודת החיתוך עם ציר הוואי. "
-                        "ואף של מספר: פשוט מציבים ומחשבים.") as d:
+        with self.voice("אז מה למדנו? פונקציה קווית היא וואי שווה אֶם איקס ועוד בי. "
+                        "אֶם הוא השיפוע: בכמה עולים בכל צעד ימינה. בי הוא נקודת החיתוך עם ציר הוואי. "
+                        "ואֶף של מספר: פשוט מציבים ומחשבים.") as d:
             self.play(Write(eq), run_time=1.5)
             for ln in (m_line, b_line, f_line):
                 self.play(FadeIn(ln, shift=UP * 0.2), run_time=1)
