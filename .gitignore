@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+.claude/
+
+# סביבת הפייתון ומטמון הקריינות — נבנים מחדש מקומית
+video/.venv/
+video/audio/
+video/samples/
+video/*.mp4
+
+# טקסט שחולץ ממדריך המורה (זכויות יוצרים של הוצאת ארכימדס) — לא לפרסם
+docs/guide-goals.txt
+video/media/
