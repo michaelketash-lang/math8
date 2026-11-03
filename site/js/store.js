@@ -2,7 +2,7 @@
    נשמר ב־localStorage ('math8'), ואם CLOUD מוגדר — מסתנכרן ל־Firebase Realtime Database כדי שההורה יראה. */
 
 // כתובת ה־Realtime Database (Firebase), למשל 'https://math8-xxxx-default-rtdb.europe-west1.firebasedatabase.app'. ריק = בלי סנכרון.
-const CLOUD = '';
+const CLOUD = 'https://math8-5165e-default-rtdb.europe-west1.firebasedatabase.app';
 
 const DAY = 864e5;
 const BOXES = [1, 3, 7, 14];    // ימים עד החזרה הבאה על מיומנות שטעו בה; אחרי 4 הצלחות בחזרה היא יוצאת מהמחברת
