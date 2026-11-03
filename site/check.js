@@ -5,7 +5,7 @@ const ctx = { console, Math, JSON, setTimeout, document: { getElementById: () =>
 ctx.window.addEventListener = () => {}; ctx.addEventListener = () => {};
 vm.createContext(ctx);
 const run = f => vm.runInContext(fs.readFileSync(path.join(__dirname, f), 'utf8'), ctx, { filename: f });
-run('js/engine.js');
+for (const f of ['js/store.js', 'js/engine.js', 'js/speak.js', 'js/guided.js', 'js/modes.js']) run(f);
 vm.runInContext('globalThis.CH = CH; globalThis.UNITS = UNITS; globalThis.parseNum = parseNum;', ctx);
 const only = process.argv.slice(2);
 let bad = 0, total = 0;

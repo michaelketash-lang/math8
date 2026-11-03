@@ -78,9 +78,10 @@ def tts(text):
         mp3 = path.with_suffix(".mp3")
         for attempt in range(8):  # the service rate-limits bursts with NoAudioReceived
             try:
-                asyncio.run(edge_tts.Communicate(text, VOICE, rate="-5%").save(str(mp3)))
+                # the service sometimes hangs without closing the connection; a timeout lets the retry kick in
+                asyncio.run(asyncio.wait_for(edge_tts.Communicate(text, VOICE, rate="-5%").save(str(mp3)), 60))
                 break
-            except edge_tts.exceptions.NoAudioReceived:
+            except (edge_tts.exceptions.NoAudioReceived, asyncio.TimeoutError):
                 if attempt == 7:
                     raise
                 time.sleep(15 * (attempt + 1))

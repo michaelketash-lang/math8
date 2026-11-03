@@ -2,6 +2,11 @@
    כל יחידה נרשמת בקובץ משלה: registerChapter('id', {...}) — ראו js/chapters/linear.js כדוגמה. */
 
 const UNITS = [
+  // חימום: חזרה על בסיס מכיתות ו׳–ז׳ (המבחן האבחוני ממליץ עליהן)
+  { id: 'w-negatives', vol: '0', area: 'חימום', book: 'חזרה מכיתה ז׳', emoji: '🌡️', title: 'מספרים מכוונים (חיוביים ושליליים)' },
+  { id: 'w-fractions', vol: '0', area: 'חימום', book: 'חזרה מכיתה ו׳', emoji: '🍕', title: 'שברים ומספרים עשרוניים' },
+  { id: 'w-order',     vol: '0', area: 'חימום', book: 'חזרה מכיתה ז׳', emoji: '🔢', title: 'סדר פעולות חשבון וחזקות' },
+  { id: 'w-algebra',   vol: '0', area: 'חימום', book: 'חזרה מכיתה ז׳', emoji: '🔤', title: 'ביטויים אלגבריים: הצבה וכינוס איברים' },
   // כרך א׳
   { id: 'equations',   vol: 'א', area: 'אלגברה',   book: 'פרק 1',      emoji: '⚖️', title: 'משוואות — חזרה ומספר הפתרונות' },
   { id: 'functions',   vol: 'א', area: 'פונקציות', book: 'פרק 2',      emoji: '🔁', title: 'מבוא לפונקציות' },
@@ -27,6 +32,7 @@ const UNITS = [
   { id: 'similarity',  vol: 'ב', area: 'גאומטריה', book: 'פרקים 17–20',emoji: '🔍', title: 'דמיון משולשים ומצולעים' },
   { id: 'pythagoras',  vol: 'ב', area: 'גאומטריה', book: 'פרק 21',     emoji: '📐', title: 'משפט פיתגורס' },
   { id: 'cylinder',    vol: 'ב', area: 'גאומטריה', book: 'פרק 22',     emoji: '🥫', title: 'גליל' },
+  { id: 'hoops',       vol: 'ב', area: 'סטטיסטיקה והסתברות', book: 'העשרה', emoji: '🏀', title: 'כדורסל במספרים: אחוזי קליעה וממוצעים' },
 ];
 
 const CH = {};
@@ -103,28 +109,21 @@ const close = (a, b, tol = 1e-6) => Math.abs(a - b) <= tol;
 // תשובה נכונה גם כשמעגלים נכון ל־2 או 3 ספרות אחרי הנקודה (למשל 0.33 במקום 1/3)
 const match = (input, ans, tol) => close(input, ans, tol) || [100, 1000].some(k => close(input, Math.round(ans * k) / k, 1e-9));
 
-/* ---------- התקדמות (localStorage, עטוף ב־try כי הוא עלול להיות חסום) ---------- */
-const P = {
-  all() { try { return JSON.parse(localStorage.getItem('math8') || '{}'); } catch { return {}; } },
-  get(id) { return this.all()[id] || { ok: 0, tries: 0 }; },
-  add(id, ok) {
-    const a = this.all(); const p = a[id] || { ok: 0, tries: 0 };
-    p.tries++; if (ok) p.ok++; a[id] = p;
-    try { localStorage.setItem('math8', JSON.stringify(a)); } catch {}
-    return p;
-  },
-};
-
 /* ---------- ניתוב ---------- */
 const app = document.getElementById('app');
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 // כותרת עם נוסחה ("y = mx + b"): הנוסחה לא נשברת ולא מתהפכת בתוך העברית
 const fmtTitle = s => esc(s).replace(/[A-Za-z][A-Za-z0-9²=+\- ]*[A-Za-z0-9²]/g, m => `<bdi dir="ltr" class="nw">${m}</bdi>`);
 
+/** דפים נוספים (אימון יומי, מבחן, הורים...) נרשמים כאן מ־modes.js: ROUTES.daily = arg => ... */
+const ROUTES = {};
 function route() {
-  const m = location.hash.match(/^#\/ch\/([\w-]+)/);
+  const m = location.hash.match(/^#\/([\w-]+)(?:\/([\w-]+))?/) || [];
   window.scrollTo(0, 0);
-  if (m && UNITS.find(u => u.id === m[1])) renderChapter(m[1]); else renderHome();
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  if (m[1] === 'ch' && UNITS.find(u => u.id === m[2])) renderChapter(m[2]);
+  else if (ROUTES[m[1]]) ROUTES[m[1]](m[2]);
+  else renderHome();
 }
 window.addEventListener('hashchange', route);
 window.addEventListener('load', route);
@@ -134,33 +133,53 @@ function progressBar(id) {
   return `<div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="התקדמות"><span style="width:${pct}%"></span></div>`;
 }
 
+function unitCard(u, tag = '') {
+  const ready = !!CH[u.id], done = P.get(u.id).ok >= GOAL;
+  return `
+    <a class="card ${ready ? '' : 'soon'} ${done ? 'done' : ''}" href="#/ch/${u.id}">
+      <span class="emoji" aria-hidden="true">${u.emoji}</span>
+      <span class="card-body">
+        <span class="area">${u.area} · ${u.book}</span>
+        <span class="card-title">${fmtTitle(u.title)}</span>
+        ${ready ? progressBar(u.id) : '<span class="soon-tag">בקרוב</span>'}
+        ${tag}
+      </span>
+      ${done ? '<span class="badge" title="הושלם">⭐</span>' : ''}
+    </a>`;
+}
+
 function renderHome() {
   document.title = 'מתמטיקה כיתה ח׳';
-  const total = UNITS.reduce((s, u) => s + Math.min(GOAL, P.get(u.id).ok), 0);
+  const cfg = Cfg.get(), rk = P.rank(), st = P.streak(), td = P.today(), due = P.due().length, mist = Object.keys(S.rev).length;
+  const pin = UNITS.find(u => u.id === cfg.pin);
+  const examDays = cfg.exam?.date ? Math.round((new Date(cfg.exam.date) - new Date(dayKey())) / DAY) : -1;
+  const weak = S.diag ? Object.entries(S.diag.res).filter(([, [ok, n]]) => ok < n * 0.67).map(([id]) => id) : [];
   let html = `
     <header class="hero">
       <h1>מתמטיקה כיתה ח׳ <span class="ball">🏀</span></h1>
       <p>כל נושא: סרטון קצר, הסבר פשוט, כלים לשחק איתם ותרגילים עם רמזים. לאט, צעד אחרי צעד.</p>
-      <div class="score">סלים עד עכשיו: <b>${total}</b> מתוך ${UNITS.length * GOAL}</div>
-    </header>`;
-  for (const vol of ['א', 'ב']) {
-    html += `<h2 class="vol">כרך ${vol}׳</h2><div class="grid">`;
-    for (const u of UNITS.filter(u => u.vol === vol)) {
-      const ready = !!CH[u.id], done = P.get(u.id).ok >= GOAL;
-      html += `
-        <a class="card ${ready ? '' : 'soon'} ${done ? 'done' : ''}" href="#/ch/${u.id}">
-          <span class="emoji" aria-hidden="true">${u.emoji}</span>
-          <span class="card-body">
-            <span class="area">${u.area} · ${u.book}</span>
-            <span class="card-title">${fmtTitle(u.title)}</span>
-            ${ready ? progressBar(u.id) : '<span class="soon-tag">בקרוב</span>'}
-          </span>
-          ${done ? '<span class="badge" title="הושלם">⭐</span>' : ''}
-        </a>`;
-    }
+      <div class="pills">
+        <span class="pill" title="ימים ברצף עם ${STREAK_MIN} שאלות לפחות">🔥 רצף: <b>${st}</b> ${st === 1 ? 'יום' : 'ימים'}</span>
+        <span class="pill">${rk.icon} דרגה: <b>${rk.name}</b></span>
+        <span class="pill">🪙 <b>${S.pts}</b> נקודות</span>
+        <span class="pill">היום: <b>${td.n}</b> שאלות</span>
+      </div>
+      ${rk.next ? `<div class="rank-next"><div class="bar"><span style="width:${rk.next.pct}%"></span></div><span class="muted">עוד ${rk.next.need} נקודות לדרגת <b>${rk.next.name}</b> · תשובה נכונה בניסיון ראשון = 2 נקודות</span></div>` : ''}
+    </header>
+    ${cfg.msg ? `<div class="msg">💬 ${esc(cfg.msg)}</div>` : ''}
+    <div class="acts">
+      <a class="act main" href="#/daily"><span class="act-i">🏀</span><b>אימון יומי</b><span>${td.daily ? 'בוצע היום ✔ אפשר עוד סיבוב' : `${DAILY_N} שאלות${due ? ` · ${due} לחזרה` : ' · בערך 10 דקות'}`}</span></a>
+      <a class="act" href="#/mistakes"><span class="act-i">📒</span><b>מחברת טעויות</b><span>${mist ? `${mist} דברים לחזק` : 'ריקה, כל הכבוד!'}</span></a>
+      <a class="act" href="#/diag"><span class="act-i">🩺</span><b>מבחן אבחון</b><span>${S.diag ? `נעשה ב־${new Date(S.diag.t).toLocaleDateString('he')} · אפשר שוב` : 'מה כדאי לחזק? 12 שאלות'}</span></a>
+      <a class="act" href="#/exam"><span class="act-i">📝</span><b>הכנה למבחן</b><span>${examDays >= 0 ? (examDays ? `המבחן בעוד ${examDays} ימים` : 'המבחן היום! בהצלחה') : 'בוחרים נושאים ומתרגלים'}</span></a>
+    </div>
+    ${pin ? `<h2 class="vol">📌 לומדים עכשיו בכיתה</h2><div class="grid">${unitCard(pin)}</div>` : ''}`;
+  for (const [vol, name] of [['0', 'חימום: חזרה על הבסיס'], ['א', 'כרך א׳'], ['ב', 'כרך ב׳']]) {
+    html += `<h2 class="vol">${name}</h2>${vol === '0' ? `<p class="muted sub">${S.diag ? 'לפי מבחן האבחון — ' + (weak.length ? 'כדאי להתחיל ביחידות המסומנות.' : 'הבסיס חזק! אפשר לדלג לכרך א׳.') : 'לא בטוח מאיפה להתחיל? עשה את <a href="#/diag">מבחן האבחון</a>.'}</p>` : ''}<div class="grid">`;
+    for (const u of UNITS.filter(u => u.vol === vol)) html += unitCard(u, weak.includes(u.id) ? '<span class="tag">מומלץ לחזור</span>' : '');
     html += '</div>';
   }
-  html += `<footer class="foot">התרגילים נוצרים מחדש בכל פעם, אז אפשר לתרגל בלי סוף. מבוסס על נושאי הספר "בכיוון הנכון" לכיתה ח׳.</footer>`;
+  html += `<footer class="foot">התרגילים נוצרים מחדש בכל פעם, אז אפשר לתרגל בלי סוף. מבוסס על נושאי הספר "בכיוון הנכון" לכיתה ח׳.<br><a href="#/parent">👨‍👩‍👦 אזור ההורים</a></footer>`;
   app.innerHTML = html;
 }
 
@@ -204,6 +223,7 @@ function renderChapter(id) {
   }));
   const vid = app.querySelector('video');
   vid.addEventListener('error', () => { vid.hidden = true; app.querySelector('.no-video').hidden = false; });
+  videoCheckpoints(vid, id, def);
   if (def.example) mountExample(app.querySelector('.example'), def.example);
   if (def.tools?.length) {
     const box = app.querySelector('.tools');
@@ -239,9 +259,10 @@ function mountExample(el, ex) {
 const PRAISE = ['סל! 🏀', 'שלשה! 🔥', 'מושלם! ⭐', 'בדיוק! 💪', 'אלוף! 🏆', 'יפה מאוד! 👏'];
 const LEVELS = [{ v: 1, t: 'קל' }, { v: 2, t: 'בינוני' }, { v: 3, t: 'אתגר' }];
 
+/** תרגול ביחידה: בוחרים רמה, ושאלה אחרי שאלה */
 function mountPractice(el, def, id) {
   const avail = LEVELS.filter(l => def.exercises.some(e => e.level === l.v));
-  let level = avail[0].v, streak = 0, cur, wrong, shown;
+  let level = avail[0].v, streak = 0;
   el.innerHTML = `
     <div class="pr-top">
       <div class="levels" role="group" aria-label="רמת קושי">${avail.map(l => `<button class="lvl" data-l="${l.v}">${l.t}</button>`).join('')}</div>
@@ -251,70 +272,115 @@ function mountPractice(el, def, id) {
   const ex = el.querySelector('.ex');
   const stats = () => { el.querySelector('.streak b').textContent = streak; el.querySelector('.bar').outerHTML = progressBar(id); };
   el.querySelectorAll('.lvl').forEach(b => b.onclick = () => { level = +b.dataset.l; next(); });
-
   function next() {
     el.querySelectorAll('.lvl').forEach(b => b.classList.toggle('on', +b.dataset.l === level));
-    const gens = def.exercises.filter(e => e.level === level);
-    cur = U.pick(gens).gen(); wrong = 0; shown = false;
-    let input = '';
-    if (cur.type === 'choice') input = `<div class="choices">${cur.choices.map((c, i) => `<button class="choice" data-i="${i}">${c}</button>`).join('')}</div>`;
-    else if (cur.type === 'pair') input = `<div class="ans" dir="ltr">( <input class="in" inputmode="decimal" aria-label="x"> , <input class="in" inputmode="decimal" aria-label="y"> )</div>`;
-    else if (cur.type === 'set') input = `<div class="ans" dir="ltr">${Array.from({ length: cur.n || cur.answer.length }, (_, i) => `<input class="in" inputmode="decimal" aria-label="תשובה ${i + 1}">`).join(' , ')}</div>`;
-    else input = `<div class="ans" dir="ltr"><input class="in" inputmode="decimal" aria-label="התשובה שלך" autocomplete="off"></div>`;
-    ex.innerHTML = `
-      <div class="q">${cur.q}</div>
-      ${cur.mount ? '<div class="qviz"></div>' : ''}
-      ${input}
-      <div class="row">
-        ${cur.type !== 'choice' ? '<button class="btn check">בדיקה</button>' : ''}
-        <button class="btn ghost hint-btn">💡 רמז</button>
-        <button class="btn ghost sol-btn">👣 פתרון מלא</button>
-        <button class="btn ghost skip">⏭ תרגיל אחר</button>
-      </div>
-      <div class="fb"></div><div class="hint" hidden></div><ol class="steps" hidden></ol>`;
-    if (cur.mount) cur.mount(ex.querySelector('.qviz'));
-    U.math(ex);
-    const ins = [...ex.querySelectorAll('.in')];
-    ins[0]?.focus({ preventScroll: true });
-    ins.forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') check(); }));
-    ex.querySelector('.check')?.addEventListener('click', check);
-    ex.querySelectorAll('.choice').forEach(b => b.onclick = () => check(+b.dataset.i, b));
-    ex.querySelector('.hint-btn').onclick = () => { const h = ex.querySelector('.hint'); h.innerHTML = '💡 ' + cur.hint; h.hidden = false; U.math(h); };
-    ex.querySelector('.sol-btn').onclick = showSolution;
-    ex.querySelector('.skip').onclick = next;
+    const gs = def.exercises.map((e, g) => ({ e, g })).filter(x => x.e.level === level), { e, g } = U.pick(gs);
+    askOne(ex, e.gen(), {
+      u: id, g, next, skip: next,
+      onTry: ok => { streak = ok ? streak + 1 : 0; stats(); },
+    });
   }
+  next();
+}
 
+/** תשובה נכונה כטקסט (לסקירה אחרי מבחן) */
+function answerText(cur) {
+  if (cur.type === 'choice') return cur.choices[cur.answer];
+  if (cur.type === 'pair') return `$(${U.num(cur.answer[0])}, ${U.num(cur.answer[1])})$`;
+  if (cur.type === 'set') return cur.answer.map(a => `$${U.num(a)}$`).join(' , ');
+  return `$${U.num(cur.answer)}$`;
+}
+
+/** שאלה אחת בתוך ex.
+    opts: u, g (יחידה ומספר מחולל) · exam: ניסיון אחד, בלי רמזים ובלי משוב (מבחן / אבחון) · review: חזרה ממחברת הטעויות
+          onDone(res, given): פעם אחת כשהשאלה נסגרת — res = 'ok' בניסיון ראשון · 'retry' אחרי טעות · 'fail' ראה פתרון / ויתר
+          onTry(ok): בכל ניסיון · next: כפתור "לתרגיל הבא" · skip: כפתור "תרגיל אחר" */
+function askOne(ex, cur, { u, g, exam = false, review = false, onDone = () => {}, onTry = () => {}, next, skip, nextLabel = 'לתרגיל הבא ←' }) {
+  let wrong = 0, shown = false, closed = false;
+  let input = '';
+  if (cur.type === 'choice') input = `<div class="choices">${cur.choices.map((c, i) => `<button class="choice" data-i="${i}">${c}</button>`).join('')}</div>`;
+  else if (cur.type === 'pair') input = `<div class="ans" dir="ltr">( <input class="in" inputmode="decimal" aria-label="x"> , <input class="in" inputmode="decimal" aria-label="y"> )</div>`;
+  else if (cur.type === 'set') input = `<div class="ans" dir="ltr">${Array.from({ length: cur.n || cur.answer.length }, (_, i) => `<input class="in" inputmode="decimal" aria-label="תשובה ${i + 1}">`).join(' , ')}</div>`;
+  else input = `<div class="ans" dir="ltr"><input class="in" inputmode="decimal" aria-label="התשובה שלך" autocomplete="off"></div>`;
+  ex.innerHTML = `
+    <div class="q-row"><div class="q">${cur.q}</div>${Speak.button()}</div>
+    ${cur.mount ? '<div class="qviz"></div>' : ''}
+    ${input}
+    <div class="row">
+      ${cur.type !== 'choice' ? '<button class="btn check">בדיקה</button>' : ''}
+      ${exam ? '<button class="btn ghost idk">🤷 לא יודע</button>' : `
+      <button class="btn ghost hint-btn">💡 רמז</button>
+      <button class="btn ghost sol-btn">👣 פתרון מלא</button>
+      ${skip ? '<button class="btn ghost skip">⏭ תרגיל אחר</button>' : ''}`}
+    </div>
+    <div class="fb"></div><div class="hint" hidden></div><ol class="steps" hidden></ol>`;
+  if (cur.mount) cur.mount(ex.querySelector('.qviz'));
+  U.math(ex);
+  ex.querySelector('.speak')?.addEventListener('click', () => Speak.say(cur.q));
+  const ins = [...ex.querySelectorAll('.in')];
+  ins[0]?.focus({ preventScroll: true });
+  ins.forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') check(); }));
+  ex.querySelector('.check')?.addEventListener('click', () => check());
+  ex.querySelectorAll('.choice').forEach(b => b.onclick = () => check(+b.dataset.i, b));
+  ex.querySelector('.idk')?.addEventListener('click', () => { P.add(u, false); close('fail', '—'); });
+  const hintBtn = ex.querySelector('.hint-btn');
+  if (hintBtn) hintBtn.onclick = () => { const h = ex.querySelector('.hint'); h.innerHTML = '💡 ' + cur.hint; h.hidden = false; U.math(h); };
+  ex.querySelector('.sol-btn')?.addEventListener('click', showSolution);
+  ex.querySelector('.skip')?.addEventListener('click', () => { if (wrong) close('fail'); skip(); });
+
+  function close(res, given) {
+    if (closed) return; closed = true;
+    P.done({ u, g, res, q: cur.q, review });
+    onDone(res, given);
+  }
+  function given(choiceIdx) {
+    if (cur.type === 'choice') return cur.choices[choiceIdx];
+    const v = ins.map(i => i.value.trim());
+    return cur.type === 'pair' ? `(${v.join(', ')})` : v.join(' , ');
+  }
   function isRight(choiceIdx) {
-    const ins = [...ex.querySelectorAll('.in')].map(i => parseNum(i.value));
+    const vals = ins.map(i => parseNum(i.value));
     const tol = cur.tol ?? 1e-6;
     if (cur.type === 'choice') return choiceIdx === cur.answer;
-    if (ins.some(isNaN)) return null;
-    if (cur.type === 'number') return match(ins[0], cur.answer, tol);
-    if (cur.type === 'pair') return match(ins[0], cur.answer[0], tol) && match(ins[1], cur.answer[1], tol);
+    if (vals.some(isNaN)) return null;
+    if (cur.type === 'number') return match(vals[0], cur.answer, tol);
+    if (cur.type === 'pair') return match(vals[0], cur.answer[0], tol) && match(vals[1], cur.answer[1], tol);
     const left = [...cur.answer]; // set
-    return ins.every(v => { const k = left.findIndex(a => match(v, a, tol)); if (k < 0) return false; left.splice(k, 1); return true; });
+    return vals.every(v => { const k = left.findIndex(a => match(v, a, tol)); if (k < 0) return false; left.splice(k, 1); return true; });
+  }
+  function nextBtn(fb) {
+    if (!next || fb.querySelector('.next')) return;
+    fb.insertAdjacentHTML('beforeend', ` <button class="btn next">${nextLabel}</button>`);
+    fb.querySelector('.next').onclick = next; fb.querySelector('.next').focus({ preventScroll: true });
   }
 
   function check(choiceIdx, btn) {
+    if (closed && exam) return;
     const fb = ex.querySelector('.fb');
     const ok = isRight(choiceIdx);
     if (ok === null) { fb.className = 'fb warn'; fb.textContent = 'כתוב מספר (אפשר גם שבר כמו 3/4).'; return; }
+    if (exam) {
+      P.add(u, ok);
+      ex.querySelectorAll('.check, .choice, .idk, .in').forEach(b => b.disabled = true);
+      btn?.classList.add('picked');
+      fb.className = 'fb warn'; fb.textContent = 'נרשם ✓';
+      return close(ok ? 'ok' : 'fail', given(choiceIdx));
+    }
     if (ok) {
-      if (!shown && !wrong) streak++;
-      if (!shown) P.add(id, true);
+      if (!shown) P.add(u, true);
+      onTry(!shown && !wrong);
       btn?.classList.add('right');
       fb.className = 'fb good';
-      fb.innerHTML = `<span class="pop">${U.pick(PRAISE)}</span> <button class="btn next">לתרגיל הבא ←</button>`;
-      fb.querySelector('.next').onclick = next; fb.querySelector('.next').focus({ preventScroll: true });
+      fb.innerHTML = `<span class="pop">${U.pick(PRAISE)}</span>`;
+      nextBtn(fb);
       ex.querySelectorAll('.check, .choice').forEach(b => b.disabled = true);
-      stats();
-      if (P.get(id).ok === GOAL) fb.insertAdjacentHTML('beforeend', '<div class="goal">⭐ השלמת את היחידה! אפשר להמשיך לתרגל או לעבור לנושא הבא.</div>');
-      return;
+      if (P.get(u).ok === GOAL && !shown) fb.insertAdjacentHTML('beforeend', '<div class="goal">⭐ השלמת את היחידה! אפשר להמשיך לתרגל או לעבור לנושא הבא.</div>');
+      return close(shown ? 'fail' : wrong ? 'retry' : 'ok');
     }
-    wrong++; streak = 0; stats(); P.add(id, false);
+    wrong++; P.add(u, false); onTry(false);
     btn?.classList.add('wrong');
     fb.className = 'fb bad';
-    if (wrong === 1) { fb.textContent = 'כמעט! נסה שוב. אם צריך, לחץ על 💡 רמז.'; ex.querySelector('.hint-btn').click(); }
+    if (wrong === 1) { fb.textContent = 'כמעט! נסה שוב. אם צריך, לחץ על 💡 רמז.'; hintBtn.click(); }
     else { fb.textContent = 'לא נורא, ככה לומדים. הנה הפתרון צעד אחרי צעד:'; showSolution(); }
   }
 
@@ -322,10 +388,7 @@ function mountPractice(el, def, id) {
     shown = true;
     const ol = ex.querySelector('.steps');
     ol.innerHTML = cur.steps.map(s => `<li>${s}</li>`).join(''); ol.hidden = false; U.math(ol);
-    if (!ex.querySelector('.fb .next')) {
-      ex.querySelector('.fb').insertAdjacentHTML('beforeend', ' <button class="btn next">לתרגיל הבא ←</button>');
-      ex.querySelector('.fb .next').onclick = next;
-    }
+    close('fail');
+    nextBtn(ex.querySelector('.fb'));
   }
-  next();
 }

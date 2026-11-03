@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "p": {
+      "$id": {
+        ".read": "$id.matches(/^[0-9a-f]{32}$/)",
+        ".write": "$id.matches(/^[0-9a-f]{32}$/)",
+        "s": { ".validate": "newData.hasChildren(['v'])" },
+        "cfg": { ".validate": "newData.hasChildren(['t'])" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
