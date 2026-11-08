@@ -17,7 +17,7 @@ const ls = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
-function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0 }; }
+function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {} }; }
 
 function loadState() {
   let s; try { s = JSON.parse(ls.get('math8') || '{}'); } catch { s = {}; }
@@ -43,7 +43,7 @@ function mergeState(a, b) {
   return {
     v: 2, upd: Math.max(a.upd || 0, b.upd || 0), units: maxMap(a.units, b.units), gens: maxMap(a.gens, b.gens),
     rev: newer.rev || {}, days: maxMap(a.days, b.days), log: log.slice(-300), diag, exams: exams.slice(-30), video,
-    pts: Math.max(a.pts || 0, b.pts || 0), seen: Math.max(a.seen || 0, b.seen || 0),
+    pts: Math.max(a.pts || 0, b.pts || 0), seen: Math.max(a.seen || 0, b.seen || 0), tdone: { ...b.tdone, ...a.tdone },
   };
 }
 
@@ -67,6 +67,7 @@ function cleanState(s) {
     log: arr(s.log).map(e => ({ t: +e.t || 0, u: String(e.u), g: +e.g || 0, res: ['ok', 'retry'].includes(e.res) ? e.res : 'fail', q: typeof e.q === 'string' ? cleanHtml(e.q) : null })),
     exams: arr(s.exams).map(e => ({ t: +e.t || 0, ok: +e.ok || 0, n: +e.n || 0, units: Array.isArray(e.units) ? e.units.map(String) : [] })),
     video: Object.fromEntries(obj(s.video).map(([k, v]) => [k, +v || 0])),
+    tdone: Object.fromEntries(obj(s.tdone).map(([k, v]) => [k, +v || 0])),
     diag: s.diag && typeof s.diag === 'object' ? { t: +s.diag.t || 0, res: Object.fromEntries(obj(s.diag.res).map(([k, v]) => [k, [+v?.[0] || 0, +v?.[1] || 0]])) } : null,
   };
 }
@@ -178,7 +179,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   window.addEventListener('pagehide', () => Sync.send(true));
 }
 
-/** הגדרות שההורה קובע: { pin: id של יחידה, exam: {date, units:[...]}, msgs: [{t, text}] } */
+/** הגדרות שההורה קובע: { pin: id של יחידה, exam: {date, units:[...]}, msgs: [{t, text}], tasks: [{id, type, u?, n?, text?, due?}] } */
 const Cfg = {
   get() { try { return JSON.parse(ls.get('math8cfg') || '{}') || {}; } catch { return {}; } },
   async set(cfg, id = Sync.id()) {

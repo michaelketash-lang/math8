@@ -279,6 +279,18 @@ ROUTES.parent = async arg => {
       <span class="fb sent"></span>
       <ul class="mlist msgs"></ul>
     </section>
+    <section class="panel tasks-p"><h2>📋 משימות <small class="muted t-sum"></small></h2>
+      <div class="bar t-bar"><span></span></div>
+      <ul class="tlist t-list"></ul>
+      <details class="t-add"><summary>➕ משימה חדשה</summary>
+        <label class="fld">סוג <select class="in t-type">${Object.entries(TASK_TYPES).map(([v, d]) => `<option value="${v}">${d.t}</option>`).join('')}</select></label>
+        <label class="fld t-u">נושא <select class="in">${UNITS.filter(u => CH[u.id]).map(u => `<option value="${u.id}" ${cfg.pin === u.id ? 'selected' : ''}>${u.emoji} ${u.title}</option>`).join('')}</select></label>
+        <label class="fld t-n">כמה <input type="number" class="in" min="1" max="100"></label>
+        <label class="fld t-text">מה לעשות <input class="in" maxlength="200" placeholder="לפתור עמוד 45 בספר, תרגילים 1–6"></label>
+        <label class="fld">עד מתי (לא חובה) <input type="date" class="in t-due"></label>
+        <div class="row"><button class="btn t-save">הוסף משימה</button><span class="fb t-fb"></span></div>
+      </details>
+    </section>
     <div class="tiles">
       <div class="tile"><span>פעילות אחרונה</span><b>${ago(last)}</b></div>
       <div class="tile"><span>רצף ימים</span><b>🔥 ${P.streak(s)}</b></div>
@@ -326,6 +338,35 @@ ROUTES.parent = async arg => {
     catch { out.className = 'fb bad sent'; out.textContent = 'השליחה נכשלה — בדוק חיבור לאינטרנט.'; }
   };
   drawMsgs();
+  const drawTasks = () => {
+    const all = tasksOf(cfg), n = all.filter(k => taskProg(k, s).done).length;
+    app.querySelector('.t-sum').textContent = all.length ? `${n} מתוך ${all.length} הושלמו` : '';
+    app.querySelector('.t-bar').hidden = !all.length;
+    app.querySelector('.t-bar span').style.width = (all.length ? 100 * n / all.length : 0) + '%';
+    app.querySelector('.t-list').innerHTML = all.slice().reverse().map(k => { const p = taskProg(k, s);
+      return `<li class="${p.done ? 't-ok' : ''}"><div class="t-top"><span>${p.done ? '✅' : '⬜'} ${taskLabel(k)}</span><small class="muted">${p.done > 0 ? `הושלם ${ago(p.done)}` : p.done ? 'הושלם' : dueText(k)}</small></div>
+        ${!p.done && p.goal > 1 ? `<div class="bar"><span style="width:${p.pct}%"></span></div><small class="muted">${progText(p)}</small>` : ''}
+        <button class="btn ghost small del" data-id="${k.id}">מחק</button></li>`; }).join('') || '<li class="muted">עוד אין משימות. הוסף משימה למטה.</li>';
+  };
+  const saveTasks = async (tasks, okText) => {
+    const out = app.querySelector('.t-fb'), next = { ...cfg, tasks: tasks.slice(-50) };
+    try { await Cfg.set(next, remote ? watch : Sync.id()); cfg = next; drawTasks(); out.className = 'fb good t-fb'; out.textContent = okText; return true; }
+    catch { out.className = 'fb bad t-fb'; out.textContent = 'השמירה נכשלה — בדוק חיבור לאינטרנט.'; }
+  };
+  const typeSel = app.querySelector('.t-type'), fld = c => app.querySelector(c);
+  const showFields = () => { const d = TASK_TYPES[typeSel.value]; fld('.t-u').hidden = !d.unit; fld('.t-n').hidden = !d.n; fld('.t-text').hidden = !d.text; fld('.t-n input').value = d.n || ''; };
+  typeSel.onchange = showFields; showFields();
+  drawTasks();
+  app.querySelector('.t-save').onclick = async () => {
+    const d = TASK_TYPES[typeSel.value], text = fld('.t-text input').value.trim();
+    if (d.text && !text) { fld('.t-fb').className = 'fb bad t-fb'; fld('.t-fb').textContent = 'כתוב מה לעשות.'; return; }
+    const k = { id: Date.now(), type: typeSel.value, ...(d.unit && { u: fld('.t-u select').value }), ...(d.n && { n: +fld('.t-n input').value || d.n }), ...(d.text && { text }), ...(fld('.t-due').value && { due: fld('.t-due').value }) };
+    if (await saveTasks([...tasksOf(cfg), k], 'נוספה ✓')) fld('.t-text input').value = '';
+  };
+  app.querySelector('.t-list').onclick = e => {
+    const id = +e.target.closest('.del')?.dataset.id;
+    if (id) saveTasks(tasksOf(cfg).filter(k => k.id !== id), 'נמחקה ✓');
+  };
   app.querySelector('.send').onclick = async () => {
     const box = app.querySelector('.msg-in'), text = box.value.trim();
     if (text && await sendMsgs([...msgsOf(cfg), { t: Date.now(), text }], 'נשלח ✓')) box.value = '';
@@ -357,13 +398,16 @@ function msgsOf(cfg) {
 }
 function showInbox() {
   let box = document.getElementById('inbox');
-  const unread = /^#\/(parent|sheet)/.test(location.hash) ? [] : msgsOf(Cfg.get()).filter(m => m.t > S.seen);
-  if (!unread.length) return box?.remove();
+  const hide = /^#\/(parent|sheet)/.test(location.hash), cfg = Cfg.get();
+  const unread = hide ? [] : msgsOf(cfg).filter(m => m.t > S.seen), newTasks = hide ? [] : tasksOf(cfg).filter(k => k.id > S.seen && !taskProg(k, S).done);
+  if (!unread.length && !newTasks.length) return box?.remove();
   if (!box) { box = document.createElement('div'); box.id = 'inbox'; box.className = 'inbox no-print'; box.setAttribute('role', 'alert'); document.body.appendChild(box); }
-  box.innerHTML = `<b>💬 ${unread.length > 1 ? `${unread.length} הודעות חדשות` : 'הודעה חדשה'} בשבילך</b>
-    ${unread.map(m => `<p>${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></p>`).join('')}
+  box.innerHTML = `${unread.length ? `<b>💬 ${unread.length > 1 ? `${unread.length} הודעות חדשות` : 'הודעה חדשה'} בשבילך</b>
+    ${unread.map(m => `<p>${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></p>`).join('')}` : ''}
+    ${newTasks.length ? `<b>📋 ${newTasks.length > 1 ? `${newTasks.length} משימות חדשות` : 'משימה חדשה'}</b>
+    ${newTasks.map(k => `<p>${taskLabel(k)} <small class="muted">${dueText(k)}</small></p>`).join('')}` : ''}
     <button class="btn">קיבלתי 👍</button>`;
-  box.querySelector('button').onclick = () => { S.seen = unread.at(-1).t; P.save(); box.remove(); };
+  box.querySelector('button').onclick = () => { S.seen = Math.max(...unread.map(m => m.t), ...newTasks.map(k => k.id)); P.save(); box.remove(); };
 }
 // בודקים הודעות חדשות כל דקה (רק כשהדף מוצג), וגם כשחוזרים ללשונית. מופעל מה־load בסוף הקובץ
 async function pollInbox() {
@@ -374,6 +418,76 @@ async function pollInbox() {
   } catch {}
   showInbox();
 }
+
+/* ---------- משימות מההורה: ההתקדמות נמדדת לבד מהתרגול (חוץ מדף עבודה / משימה חופשית — הוא מסמן "סיימתי") ---------- */
+const TASK_TYPES = {
+  practice: { t: '🏀 לפתור נכון תרגילים בנושא', unit: true, n: 10 },
+  video: { t: '🎬 לצפות בסרטון של נושא', unit: true },
+  sheet: { t: '📝 לפתור דף עבודה בנושא', unit: true },
+  daily: { t: '📅 לעשות אימון יומי בכמה ימים', n: 3 },
+  free: { t: '✏️ משימה חופשית', text: true },
+};
+const TASK_PTS = 10;
+/** המשימות מתוך הגדרות ההורה (מהענן — בודקים סוגים) */
+function tasksOf(cfg) {
+  return (Array.isArray(cfg.tasks) ? cfg.tasks : []).filter(k => k && TASK_TYPES[k.type] && +k.id && (!TASK_TYPES[k.type].unit || unitOf(k.u)))
+    .map(k => ({ id: +k.id, type: k.type, u: k.u, n: Math.max(1, Math.min(100, +k.n || 1)), text: String(k.text || '').slice(0, 200), due: /^\d{4}-\d\d-\d\d$/.test(k.due) ? k.due : null }));
+}
+function taskLabel(k) {
+  const u = unitOf(k.u), name = u && `${u.emoji} ${fmtTitle(u.title)}`;
+  return { practice: `לפתור נכון ${k.n} תרגילים: ${name}`, video: `לצפות בסרטון: ${name}`, sheet: `לפתור דף עבודה: ${name}`,
+    daily: k.n === 1 ? 'לעשות אימון יומי' : `לעשות אימון יומי ב־${k.n} ימים שונים`, free: esc(k.text) }[k.type];
+}
+/** כמה כבר עשה (have מתוך goal) — מחושב ממצב התלמיד s, אז גם ההורה רואה את אותו הדבר */
+function taskProg(k, s) {
+  const goal = { practice: k.n, daily: k.n, video: 90 }[k.type] || 1;
+  const have = k.type === 'practice' ? s.log.filter(e => e.u === k.u && e.t >= k.id && e.res !== 'fail').length
+    : k.type === 'video' ? Math.round(100 * (s.video[k.u] || 0))
+    : k.type === 'daily' ? Object.entries(s.days).filter(([d, v]) => d >= dayKey(k.id) && v.daily).length
+    : 0;
+  const done = s.tdone[k.id] || (have >= goal ? -1 : 0); // -1 = הושלם אבל עוד לא נרשם אצל התלמיד
+  return { have: done ? goal : Math.min(have, goal), goal, done, pct: done ? 100 : Math.round(100 * Math.min(have, goal) / goal), unit: k.type === 'video' ? '%' : '' };
+}
+const progText = p => (p.unit ? `נצפו ${p.have}% מהסרטון` : `${p.have} מתוך ${p.goal}`);
+const taskLink = k => ({ practice: `#/ch/${k.u}`, video: `#/ch/${k.u}`, sheet: `#/sheet/${k.u}`, daily: '#/daily' }[k.type]);
+const dueText = k => k.due ? `עד ${new Date(k.due).toLocaleDateString('he', { day: 'numeric', month: 'numeric' })}${k.due < dayKey() ? ' ⚠️' : ''}` : '';
+
+/** אצל התלמיד: משימה שהגיעה ליעד נרשמת כהושלמה, מקבלים נקודות ורואים הודעה */
+function checkTasks() {
+  const fresh = tasksOf(Cfg.get()).filter(k => !S.tdone[k.id] && taskProg(k, S).done);
+  if (!fresh.length) return;
+  for (const k of fresh) S.tdone[k.id] = Date.now();
+  P.bonus(TASK_PTS * fresh.length);
+  toast(`🏆 השלמת ${fresh.length > 1 ? `${fresh.length} משימות` : `משימה: ${taskLabel(fresh[0])}`}! +${TASK_PTS * fresh.length} נקודות`);
+  if (!location.hash.replace(/^#\/?/, '')) renderHome();
+}
+function toast(html) {
+  const t = document.createElement('div');
+  t.className = 'toast no-print'; t.setAttribute('role', 'status'); t.innerHTML = html;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 5000);
+}
+/** רשימת המשימות בדף הבית של התלמיד */
+function tasksHome() {
+  const all = tasksOf(Cfg.get());
+  if (!all.length) return '';
+  const open = all.filter(k => !taskProg(k, S).done), n = all.length - open.length;
+  return `<section class="panel tasks"><h2>📋 המשימות שלי <small class="muted">${n} מתוך ${all.length} הושלמו</small></h2>
+    ${open.length ? `<ul class="tlist">${open.map(k => { const p = taskProg(k, S), link = taskLink(k);
+      return `<li><div class="t-top"><span>${taskLabel(k)}</span><small class="muted">${dueText(k)}</small></div>
+        ${p.goal > 1 ? `<div class="bar"><span style="width:${p.pct}%"></span></div><small class="muted">${progText(p)}</small>` : ''}
+        <div class="row">${link ? `<a class="btn small" href="${link}">לביצוע ←</a>` : ''}${['sheet', 'free'].includes(k.type) ? `<button class="btn ghost small t-done" data-id="${k.id}">סיימתי ✓</button>` : ''}</div></li>`; }).join('')}</ul>`
+      : '<p>🏆 סיימת את כל המשימות! כל הכבוד!</p>'}
+  </section>`;
+}
+if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('click', e => {
+  const b = e.target.closest?.('.t-done');
+  if (!b) return;
+  const k = tasksOf(Cfg.get()).find(k => k.id === +b.dataset.id);
+  if (k && !S.tdone[k.id]) { S.tdone[k.id] = Date.now(); P.bonus(TASK_PTS); toast(`🏆 השלמת משימה: ${taskLabel(k)}! +${TASK_PTS} נקודות`); renderHome(); }
+});
+// בודקים משימות אחרי כל תשובה (כדי לחגוג מיד כשמגיעים ליעד)
+const pDone = P.done.bind(P);
+P.done = a => { pDone(a); checkTasks(); };
 
 /* חיבור מכשיר נוסף של התלמיד לאותה התקדמות */
 ROUTES.link = async id => {
@@ -450,7 +564,8 @@ ROUTES.sheet = id => {
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('load', async () => {
   if (await Sync.pull() && !location.hash.replace(/^#\/?/, '')) renderHome();
   showInbox();
-  window.addEventListener('hashchange', showInbox);
+  checkTasks();
+  window.addEventListener('hashchange', () => { checkTasks(); showInbox(); });
   document.addEventListener('visibilitychange', pollInbox);
   setInterval(pollInbox, 60e3);
 });
