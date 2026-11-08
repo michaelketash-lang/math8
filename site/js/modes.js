@@ -273,6 +273,12 @@ ROUTES.parent = async arg => {
             <p class="muted">אם הוא מתרגל גם במכשיר נוסף (מחשב וטלפון), פתח שם את הקישור <bdi dir="ltr">${location.href.split('#')[0]}#/link/${Sync.id()}</bdi> כדי ששני המכשירים יעבדו על אותה התקדמות.</p>`
             : '<p class="note">הסנכרון לאינטרנט עוד לא הופעל, לכן מוצגים רק נתונים מהמכשיר הזה.</p>'}
         </section>`}
+    <section class="panel inbox-p"><h2>💬 הודעות אליו</h2>
+      <p class="muted">ההודעה תקפוץ לו על המסך באתר (גם אם האתר כבר פתוח אצלו, תוך דקה), ותראה כאן ✓ כשהוא קרא.</p>
+      <div class="send-row"><textarea class="in msg-in" maxlength="300" rows="2" placeholder="כל הכבוד על השבוע! 💪"></textarea><button class="btn send">שלח</button></div>
+      <span class="fb sent"></span>
+      <ul class="mlist msgs"></ul>
+    </section>
     <div class="tiles">
       <div class="tile"><span>פעילות אחרונה</span><b>${ago(last)}</b></div>
       <div class="tile"><span>רצף ימים</span><b>🔥 ${P.streak(s)}</b></div>
@@ -307,24 +313,67 @@ ROUTES.parent = async arg => {
         <select class="in pin"><option value="">— בלי —</option>${UNITS.map(u => `<option value="${u.id}" ${cfg.pin === u.id ? 'selected' : ''}>${u.emoji} ${u.title}</option>`).join('')}</select></label>
       <label class="fld">📅 תאריך המבחן הבא <input type="date" class="in exam-date" value="${esc(cfg.exam?.date || '')}"></label>
       <details ${cfg.exam?.units?.length ? 'open' : ''}><summary>הנושאים במבחן</summary>${UNITS.map(u => `<label class="chk"><input type="checkbox" value="${u.id}" ${cfg.exam?.units?.includes(u.id) ? 'checked' : ''}> ${u.emoji} ${fmtTitle(u.title)}</label>`).join('')}</details>
-      <label class="fld">💬 הודעה שתופיע לו בדף הבית <input class="in msg-in" maxlength="140" value="${esc(cfg.msg || '')}" placeholder="כל הכבוד על השבוע! 💪"></label>
       <div class="row"><button class="btn save">שמור</button><span class="fb saved"></span></div>
     </section>`);
   U.math(app);
+  const drawMsgs = () => {
+    app.querySelector('.msgs').innerHTML = msgsOf(cfg).reverse().map(m => `<li><span class="muted">${ago(m.t)} · ${s.seen >= m.t ? '✓ נקרא' : 'עוד לא נקרא'}</span>
+      <div>${esc(m.text)}</div><button class="btn ghost small del" data-t="${m.t}">מחק</button></li>`).join('') || '<li class="muted">עוד לא נשלחו הודעות.</li>';
+  };
+  const sendMsgs = async (msgs, okText) => {
+    const out = app.querySelector('.sent'), next = { ...cfg, msgs: msgs.slice(-20), msg: null };
+    try { await Cfg.set(next, remote ? watch : Sync.id()); cfg = next; drawMsgs(); out.className = 'fb good sent'; out.textContent = okText; return true; }
+    catch { out.className = 'fb bad sent'; out.textContent = 'השליחה נכשלה — בדוק חיבור לאינטרנט.'; }
+  };
+  drawMsgs();
+  app.querySelector('.send').onclick = async () => {
+    const box = app.querySelector('.msg-in'), text = box.value.trim();
+    if (text && await sendMsgs([...msgsOf(cfg), { t: Date.now(), text }], 'נשלח ✓')) box.value = '';
+  };
+  app.querySelector('.msgs').onclick = e => {
+    const t = +e.target.closest('.del')?.dataset.t;
+    if (t) sendMsgs(msgsOf(cfg).filter(m => m.t !== t), 'נמחק ✓');
+  };
   app.querySelector('.unwatch')?.addEventListener('click', () => { ls.set('math8watch', ''); route(); });
   app.querySelector('.copy')?.addEventListener('click', e => { const i = app.querySelector('.linkbox input'); i.select(); navigator.clipboard?.writeText(i.value); e.target.textContent = 'הועתק ✓'; });
   app.querySelector('.shr')?.addEventListener('click', () => navigator.share({ title: 'ההתקדמות במתמטיקה', url: link }).catch(() => {}));
   app.querySelector('.save').onclick = async () => {
     const out = app.querySelector('.saved');
     const next = {
+      ...cfg,
       pin: app.querySelector('.pin').value || null,
       exam: { date: app.querySelector('.exam-date').value || null, units: [...app.querySelectorAll('.ctl .chk input:checked')].map(i => i.value) },
-      msg: app.querySelector('.msg-in').value.trim() || null,
     };
-    try { await Cfg.set(next, remote ? watch : Sync.id()); out.className = 'fb good saved'; out.textContent = 'נשמר ✓'; }
+    try { await Cfg.set(next, remote ? watch : Sync.id()); cfg = next; out.className = 'fb good saved'; out.textContent = 'נשמר ✓'; }
     catch { out.className = 'fb bad saved'; out.textContent = 'השמירה נכשלה — בדוק חיבור לאינטרנט.'; }
   };
 };
+
+/* ---------- הודעות מההורה: קופצות לתלמיד בכל דף עד שלחץ "קיבלתי" ---------- */
+/** ההודעות מתוך הגדרות ההורה (מהענן — לכן בודקים סוגים). msg = הודעה בודדת מהגרסה הקודמת */
+function msgsOf(cfg) {
+  const list = Array.isArray(cfg.msgs) ? cfg.msgs : cfg.msg ? [{ t: cfg.t, text: cfg.msg }] : [];
+  return list.filter(m => m && typeof m.text === 'string' && +m.t).map(m => ({ t: +m.t, text: m.text.slice(0, 300) }));
+}
+function showInbox() {
+  let box = document.getElementById('inbox');
+  const unread = /^#\/(parent|sheet)/.test(location.hash) ? [] : msgsOf(Cfg.get()).filter(m => m.t > S.seen);
+  if (!unread.length) return box?.remove();
+  if (!box) { box = document.createElement('div'); box.id = 'inbox'; box.className = 'inbox no-print'; box.setAttribute('role', 'alert'); document.body.appendChild(box); }
+  box.innerHTML = `<b>💬 ${unread.length > 1 ? `${unread.length} הודעות חדשות` : 'הודעה חדשה'} בשבילך</b>
+    ${unread.map(m => `<p>${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></p>`).join('')}
+    <button class="btn">קיבלתי 👍</button>`;
+  box.querySelector('button').onclick = () => { S.seen = unread.at(-1).t; P.save(); box.remove(); };
+}
+// בודקים הודעות חדשות כל דקה (רק כשהדף מוצג), וגם כשחוזרים ללשונית. מופעל מה־load בסוף הקובץ
+async function pollInbox() {
+  if (!CLOUD || document.hidden) return;
+  try {
+    const cfg = await Sync.get(Sync.id(), 'cfg');
+    if (cfg && JSON.stringify(cfg) !== ls.get('math8cfg')) { ls.set('math8cfg', JSON.stringify(cfg)); if (!location.hash.replace(/^#\/?/, '')) renderHome(); }
+  } catch {}
+  showInbox();
+}
 
 /* חיבור מכשיר נוסף של התלמיד לאותה התקדמות */
 ROUTES.link = async id => {
@@ -400,4 +449,8 @@ ROUTES.sheet = id => {
 // אחרי הטעינה: מושכים מהענן (מכשיר אחר / הגדרות ההורה) ומרעננים את דף הבית אם משהו השתנה
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('load', async () => {
   if (await Sync.pull() && !location.hash.replace(/^#\/?/, '')) renderHome();
+  showInbox();
+  window.addEventListener('hashchange', showInbox);
+  document.addEventListener('visibilitychange', pollInbox);
+  setInterval(pollInbox, 60e3);
 });

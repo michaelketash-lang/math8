@@ -166,7 +166,7 @@ function renderHome() {
       </div>
       ${rk.next ? `<div class="rank-next"><div class="bar"><span style="width:${rk.next.pct}%"></span></div><span class="muted">עוד ${rk.next.need} נקודות לדרגת <b>${rk.next.name}</b> · תשובה נכונה בניסיון ראשון = 2 נקודות</span></div>` : ''}
     </header>
-    ${cfg.msg ? `<div class="msg">💬 ${esc(cfg.msg)}</div>` : ''}
+    ${msgsOf(cfg).slice(-3).reverse().map(m => `<div class="msg">💬 ${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></div>`).join('')}
     <div class="acts">
       <a class="act main" href="#/daily"><span class="act-i">🏀</span><b>אימון יומי</b><span>${td.daily ? 'בוצע היום ✔ אפשר עוד סיבוב' : `${DAILY_N} שאלות${due ? ` · ${due} לחזרה` : ' · בערך 10 דקות'}`}</span></a>
       <a class="act" href="#/mistakes"><span class="act-i">📒</span><b>מחברת טעויות</b><span>${mist ? `${mist} דברים לחזק` : 'ריקה, כל הכבוד!'}</span></a>
