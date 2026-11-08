@@ -331,6 +331,71 @@ ROUTES.link = async id => {
   if (/^[0-9a-f]{32}$/.test(id || '')) { ls.set('math8id', id); await Sync.pull(); }
   location.hash = '#/';
 };
+/* ---------- דף עבודה להדפסה / PDF: 20 תרגילים חדשים בכל פעם, 4 קלים · 10 בינוניים · 6 קשים ---------- */
+const SHEET = [{ lv: 1, n: 4, t: 'קל' }, { lv: 2, n: 10, t: 'בינוני' }, { lv: 3, n: 6, t: 'אתגר' }];
+const ABC = 'אבגדהו';
+function sheetItems(def) {
+  const seen = new Set();
+  return SHEET.map(s => {
+    const gs = U.shuffle(def.exercises.filter(e => e.level === s.lv));
+    return { ...s, qs: Array.from({ length: s.n }, (_, i) => {
+      // מחוללים לפי הסבב, כדי שכל סוגי השאלות יופיעו; שאלה שכבר יצאה — מגרילים שוב
+      let cur, k = 0;
+      do cur = gs[i % gs.length].gen(); while (seen.has(cur.q) && ++k < 20);
+      seen.add(cur.q);
+      return cur;
+    }) };
+  });
+}
+function sheetBlank(cur) {
+  if (cur.type === 'choice') return `<ol class="sh-choices">${cur.choices.map((c, i) => `<li><b>${ABC[i]}.</b> ${c}</li>`).join('')}</ol>`;
+  if (cur.type === 'pair') return '<div class="sh-line" dir="ltr">( ______ , ______ )</div>';
+  if (cur.type === 'set') return `<div class="sh-line" dir="ltr">${Array(cur.n || cur.answer.length).fill('______').join(' , ')}</div>`;
+  return '<div class="sh-line">תשובה: ____________</div>';
+}
+ROUTES.sheet = id => {
+  const u = unitOf(id), def = CH[id];
+  if (!u || !def) return renderHome();
+  document.title = `דף עבודה · ${u.title}`;
+  const parts = sheetItems(def);
+  let num = 0;
+  app.innerHTML = `
+    <div class="no-print">
+      <a class="back" href="#/ch/${id}">→ חזרה ליחידה</a>
+      <div class="panel sheet-bar">
+        <p class="lead">20 תרגילים לפתור על דף: 4 קלים, 10 בינוניים ו־6 אתגר. בכל פעם נוצר דף חדש.</p>
+        <div class="row">
+          <button class="btn print">⬇️ הורדה כ־PDF / הדפסה</button>
+          <button class="btn ghost again">🔄 דף אחר</button>
+          <label class="chk"><input type="checkbox" class="with-ans"> לצרף דף תשובות בסוף</label>
+        </div>
+        <p class="muted">בחלון שנפתח בוחרים "שמירה כ־PDF" (Save as PDF) כדי להוריד, או מדפסת כדי להדפיס.</p>
+      </div>
+    </div>
+    <article class="sheet">
+      <header class="sh-head">
+        <h1>${u.emoji} דף עבודה: ${fmtTitle(u.title)}</h1>
+        <div class="sh-name">שם: ________________ &nbsp; תאריך: ____________ &nbsp; ציון: ______ / 20</div>
+      </header>
+      ${parts.map(p => `
+        <h2>${p.t} (${p.n} תרגילים)</h2>
+        <ol class="sh-qs" start="${num + 1}">${p.qs.map(cur => (num++, `
+          <li><div class="q">${cur.q}</div>${cur.mount ? '<div class="qviz"></div>' : ''}${sheetBlank(cur)}</li>`)).join('')}
+        </ol>`).join('')}
+      <section class="sh-ans" hidden>
+        <h2>✅ תשובות</h2>
+        <ol>${parts.flatMap(p => p.qs).map(cur => `<li>${cur.type === 'choice' ? `<b>${ABC[cur.answer]}.</b> ` : ''}${answerText(cur)}</li>`).join('')}</ol>
+      </section>
+    </article>`;
+  const qs = parts.flatMap(p => p.qs);
+  app.querySelectorAll('.sh-qs > li').forEach((li, i) => {
+    try { qs[i].mount?.(li.querySelector('.qviz')); } catch (err) { console.error(err); }
+  });
+  app.querySelector('.with-ans').onchange = e => { app.querySelector('.sh-ans').hidden = !e.target.checked; };
+  app.querySelector('.print').onclick = () => print();
+  app.querySelector('.again').onclick = () => ROUTES.sheet(id);
+  U.math(app);
+};
 
 // אחרי הטעינה: מושכים מהענן (מכשיר אחר / הגדרות ההורה) ומרעננים את דף הבית אם משהו השתנה
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('load', async () => {

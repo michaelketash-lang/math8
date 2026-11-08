@@ -221,3 +221,31 @@ legend { font-weight: 500; padding: 0 6px; }
 .fld .in { width: 100%; text-align: right; font-size: 1rem; }
 .ctl details { margin: 10px 0; }
 .ctl summary { cursor: pointer; font-weight: 500; }
+
+/* דף עבודה (#/sheet/id) — על המסך ובהדפסה */
+.sheet-cta { margin-top: 18px; padding: 14px 18px; border-radius: 12px; border: 2px dashed var(--line); }
+.sheet-cta h3 { margin: 0 0 4px; }
+.sheet { background: var(--panel); border-radius: 14px; padding: 20px 24px; }
+.sh-head h1 { margin: 0 0 6px; font-size: 1.5rem; }
+.sh-name { color: var(--muted); margin-bottom: 8px; }
+.sheet h2 { font-size: 1.15rem; border-bottom: 2px solid var(--line); padding-bottom: 4px; margin: 22px 0 8px; break-after: avoid; }
+.sh-qs > li { margin: 0 0 14px; padding-bottom: 10px; break-inside: avoid; }
+.sh-qs > li::after { content: ''; display: block; clear: both; }
+.sh-qs .q { margin-bottom: 6px; }
+.sh-qs .qviz { float: left; width: 240px; margin: 0 16px 4px 0; }
+.sh-qs .qviz .jxg-box { max-width: 240px; margin: 0; }
+.sh-line { margin-top: 18px; }
+.sh-choices { list-style: none; padding: 0; margin: 4px 0; display: flex; flex-wrap: wrap; gap: 4px 24px; }
+.sh-ans ol { columns: 2; }
+@media screen and (max-width: 560px) { .sh-qs .qviz { float: none; } }
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    --bg: #fff; --panel: #fff; --ink: #000; --muted: #333; --line: #999; color-scheme: light;
+  }
+  body { font-size: 14px; }
+  .no-print { display: none !important; }
+  .wrap { max-width: none; padding: 0; }
+  .sheet { padding: 0; }
+  .sh-qs > li { min-height: 5em; }
+  .sh-ans { break-before: page; }
+}

@@ -211,7 +211,13 @@ function renderChapter(id) {
     <section id="learn" class="panel"><h2>💡 מה צריך לדעת</h2><div class="learn">${def.intro}</div></section>
     ${def.example ? `<section id="example" class="panel"><h2>👣 דוגמה פתורה צעד אחרי צעד</h2><div class="example"></div></section>` : ''}
     ${def.tools?.length ? `<section id="tools" class="panel"><h2>🛠️ כלים לשחק איתם</h2><div class="tools"></div></section>` : ''}
-    <section id="practice" class="panel"><h2>🏀 תרגול</h2><div class="practice"></div></section>
+    <section id="practice" class="panel"><h2>🏀 תרגול</h2><div class="practice"></div>
+      <div class="sheet-cta">
+        <h3>📝 שלב אחרון: דף עבודה</h3>
+        <p>תרגלת כאן? עכשיו תוריד דף עם 20 תרגילים (4 קלים, 10 בינוניים, 6 אתגר) ותפתור לבד על דף, בלי רמזים.</p>
+        <a class="btn" href="#/sheet/${id}">לדף העבודה ←</a>
+      </div>
+    </section>
     <section id="summary" class="panel"><h2>📋 סיכום — מה לזכור</h2><ul class="summary">${def.summary.map(s => `<li>${s}</li>`).join('')}</ul></section>
     <nav class="pager">
       ${prev ? `<a href="#/ch/${prev.id}">→ ${fmtTitle(prev.title)}</a>` : '<span></span>'}
