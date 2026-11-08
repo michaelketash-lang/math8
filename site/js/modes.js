@@ -410,8 +410,16 @@ function showInbox() {
   box.querySelector('button').onclick = () => { S.seen = Math.max(...unread.map(m => m.t), ...newTasks.map(k => k.id)); P.save(); box.remove(); };
 }
 // בודקים הודעות חדשות כל דקה (רק כשהדף מוצג), וגם כשחוזרים ללשונית. מופעל מה־load בסוף הקובץ
+/** דף שפתוח הרבה זמן: אם האתר עודכן מאז שנטען — מרעננים (רק בדף הבית / אזור ההורים, כדי לא לקטוע תרגיל) */
+async function checkVersion() {
+  const v = document.querySelector('script[src*="modes.js"]')?.src.match(/[?&]v=(\w+)/)?.[1];
+  if (!v || v === 'dev' || !/^#?\/?(parent)?$/.test(location.hash)) return;
+  try { const live = (await (await fetch('version.txt', { cache: 'no-store' })).text()).trim(); if (/^\w+$/.test(live) && live !== v) location.reload(); } catch {}
+}
 async function pollInbox() {
-  if (!CLOUD || document.hidden) return;
+  if (document.hidden) return;
+  checkVersion();
+  if (!CLOUD) return;
   try {
     const cfg = await Sync.get(Sync.id(), 'cfg');
     if (cfg && JSON.stringify(cfg) !== ls.get('math8cfg')) { ls.set('math8cfg', JSON.stringify(cfg)); if (!location.hash.replace(/^#\/?/, '')) renderHome(); }

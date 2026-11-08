@@ -24,6 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node site/check.js
+      # גרסה בכתובות של ה־JS/CSS, כדי שדפדפנים לא ישתמשו בקוד ישן מהמטמון; version.txt — דף פתוח בודק אותו ומתרענן
+      - run: |
+          V=${GITHUB_SHA::8}
+          sed -i "s/?v=dev/?v=$V/g" site/index.html
+          echo -n "$V" > site/version.txt
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
