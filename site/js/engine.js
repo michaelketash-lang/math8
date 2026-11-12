@@ -337,7 +337,7 @@ function diagnose(cur, vals, choiceIdx) {
   if (Number.isInteger(a) && Number.isInteger(g) && Math.abs(a) >= 10 && Math.abs(g - a) <= 2) return 'קרוב מאוד! כנראה טעות חישוב קטנה. בדוק שוב את החיבור והחיסור.';
   return '';
 }
-const diagHtml = d => (d ? `<div class="diag">🔎 <b>איפה הטעות?</b> ${d}</div>` : '');
+const diagHtml = d => (d ? `<div class="why-wrong">🔎 <b>איפה הטעות?</b> ${d}</div>` : '');
 
 /** שאלה אחת בתוך ex.
     opts: u, g (יחידה ומספר מחולל) · exam: ניסיון אחד, בלי רמזים ובלי משוב (מבחן / אבחון) · review: חזרה ממחברת הטעויות

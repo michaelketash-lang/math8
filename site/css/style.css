@@ -288,7 +288,7 @@ legend { font-weight: 500; padding: 0 6px; }
 .sheet-bar .btn.fix { text-decoration: none; }
 .week .tile { background: var(--bg); box-shadow: none; }
 
-.diag { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--ink); font-weight: 400; }
+.why-wrong { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--ink); font-weight: 400; }
 
 /* תוספות: איך היה, מצא את הטעות, זריקות עונשין, קלפים, דף נוסחאות */
 .feel { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
