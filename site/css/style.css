@@ -281,3 +281,9 @@ legend { font-weight: 500; padding: 0 6px; }
 .sh-qs > li.r-bad .sh-res { color: var(--bad); }
 .sh-qs details { clear: both; margin-top: 6px; }
 .sh-qs summary { cursor: pointer; font-weight: 500; }
+
+/* סיכום שבועי ופרסים */
+.tile small.up { color: var(--good); } .tile small.down { color: var(--bad); }
+.week h3 { margin: 14px 0 0; font-size: 1.05rem; }
+.sheet-bar .btn.fix { text-decoration: none; }
+.week .tile { background: var(--bg); box-shadow: none; }

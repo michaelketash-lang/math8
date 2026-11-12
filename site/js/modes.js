@@ -274,6 +274,7 @@ ROUTES.parent = async arg => {
   const misses = s.log.filter(e => e.res !== 'ok' && e.q && unitOf(e.u)).slice(-8).reverse();
   const link = `${location.href.split('#')[0]}#/parent/${Sync.id()}`;
 
+  const wk = weekSummary(s, cfg);
   page('👨‍👩‍👦 אזור ההורים', `
     ${remote ? `<p class="muted">מוצגים הנתונים מהמכשיר של התלמיד (מתעדכנים כמה שניות אחרי כל תרגיל). <button class="btn ghost small unwatch">הצג את המכשיר הזה במקום</button></p>`
       : `<section class="panel share">
@@ -283,6 +284,7 @@ ROUTES.parent = async arg => {
             <p class="muted">אם הוא מתרגל גם במכשיר נוסף (מחשב וטלפון), פתח שם את הקישור <bdi dir="ltr">${location.href.split('#')[0]}#/link/${Sync.id()}</bdi> כדי ששני המכשירים יעבדו על אותה התקדמות.</p>`
             : '<p class="note">הסנכרון לאינטרנט עוד לא הופעל, לכן מוצגים רק נתונים מהמכשיר הזה.</p>'}
         </section>`}
+    ${wk.html}
     <section class="panel inbox-p"><h2>💬 הודעות אליו</h2>
       <p class="muted">ההודעה תקפוץ לו על המסך באתר (גם אם האתר כבר פתוח אצלו, תוך דקה), ותראה כאן ✓ כשהוא קרא.</p>
       <div class="send-row"><textarea class="in msg-in" maxlength="300" rows="2" placeholder="כל הכבוד על השבוע! 💪"></textarea><button class="btn send">שלח</button></div>
@@ -299,6 +301,16 @@ ROUTES.parent = async arg => {
         <label class="fld t-text">מה לעשות <input class="in" maxlength="200" placeholder="לפתור עמוד 45 בספר, תרגילים 1–6"></label>
         <label class="fld">עד מתי (לא חובה) <input type="date" class="in t-due"></label>
         <div class="row"><button class="btn t-save">הוסף משימה</button><span class="fb t-fb"></span></div>
+      </details>
+    </section>
+    <section class="panel rewards-p"><h2>🎁 פרסים</h2>
+      <p class="muted">פרס הוא יעד ארוך וקשה בכוונה. כדי להשיג אותו צריך גם <b>כוכבים</b> (רק תשובה נכונה בניסיון ראשון: קל ⭐1, בינוני ⭐2, אתגר ⭐4) וגם <b>דפי עבודה</b> עם 16 נכונות לפחות מתוך 20, כל אחד בנושא אחר. הספירה מתחילה מהרגע שהוספת את הפרס.</p>
+      <ul class="tlist r-list"></ul>
+      <details class="t-add"><summary>➕ פרס חדש</summary>
+        <label class="fld">הפרס <input class="in r-text" maxlength="120" placeholder="הולכים ביחד למשחק של מכבי"></label>
+        <label class="fld">כמה קשה <select class="in r-stars">${REWARD_LEVELS.map(l => `<option value="${l.stars}">${l.t}</option>`).join('')}</select></label>
+        <label class="fld">כמה דפי עבודה (16+ מתוך 20, בנושאים שונים) <select class="in r-sheets">${[3, 5, 8].map(n => `<option>${n}</option>`).join('')}</select></label>
+        <div class="row"><button class="btn r-save">הוסף פרס</button><span class="fb r-fb"></span></div>
       </details>
     </section>
     <div class="tiles">
@@ -328,7 +340,7 @@ ROUTES.parent = async arg => {
     </section>
     <section class="panel"><h2>🩺 אבחון ומבחנים</h2>
       ${s.diag ? `<p>מבחן אבחון (${new Date(s.diag.t).toLocaleDateString('he')}): ${Object.entries(s.diag.res).map(([id, [ok, n]]) => `${unitOf(id)?.emoji || ''} ${ok}/${n}${ok < n * 0.67 ? ' ⚠️' : ''}`).join(' · ')}</p>` : '<p class="muted">עוד לא עשה מבחן אבחון.</p>'}
-      ${s.sheetLog.length ? `<p>📝 דפי עבודה שהגיש:</p><ul>${s.sheetLog.slice(-8).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ${unitOf(e.u)?.emoji || ''} ${fmtTitle(unitOf(e.u)?.title || e.u)} — <b>${e.ok} מתוך ${e.n}</b>${e.lv.length === 3 ? ` <small class="muted">(קל ${e.lv[0]}/4 · בינוני ${e.lv[1]}/10 · אתגר ${e.lv[2]}/6)</small>` : ''}</li>`).join('')}</ul>` : '<p class="muted">עוד לא הגיש דף עבודה.</p>'}
+      ${s.sheetLog.length ? `<p>📝 דפי עבודה שהגיש:</p><ul>${s.sheetLog.slice(-8).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ${unitOf(e.u)?.emoji || ''} ${fmtTitle(unitOf(e.u)?.title || e.u)} — <b>${e.ok} מתוך ${e.n}</b>${e.lv.length === 3 ? ` <small class="muted">(קל ${e.lv[0]}/4 · בינוני ${e.lv[1]}/10 · אתגר ${e.lv[2]}/6)</small>` : ''}${e.fix ? ` · תרגול תיקון: ${e.fix[0]}/${e.fix[1]}` : ''}</li>`).join('')}</ul>` : '<p class="muted">עוד לא הגיש דף עבודה.</p>'}
       ${s.exams.length ? `<ul>${s.exams.slice(-6).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ציון <b>${acc(e.ok, e.n)}</b> · ${e.units.map(id => unitOf(id)?.emoji || '').join(' ')}</li>`).join('')}</ul>` : '<p class="muted">עוד לא עשה מבחן תרגול.</p>'}
     </section>
     <section class="panel ctl"><h2>⚙️ הגדרות בשבילו</h2>
@@ -368,6 +380,30 @@ ROUTES.parent = async arg => {
   const showFields = () => { const d = TASK_TYPES[typeSel.value]; fld('.t-u').hidden = !d.unit; fld('.t-n').hidden = !d.n; fld('.t-text').hidden = !d.text; fld('.t-n input').value = d.n || ''; };
   typeSel.onchange = showFields; showFields();
   drawTasks();
+  app.querySelector('.week').onclick = async e => {
+    const b = e.target.closest('.sug');
+    if (b && await saveTasks([...tasksOf(cfg), { id: Date.now(), ...wk.sug[+b.dataset.i].task }], 'נוספה ✓')) { b.disabled = true; b.textContent = 'נוספה ✓'; }
+  };
+  const drawRewards = () => {
+    app.querySelector('.r-list').innerHTML = rewardsOf(cfg).map(r => { const p = rewardProg(r, s);
+      return `<li><div class="t-top"><b>${p.done ? '🏆 ' : ''}${esc(r.text)}</b><small class="muted">${p.done ? 'הושג! מגיע לו הפרס' : ''}</small></div>${rewardBars(r, p)}
+        <button class="btn ghost small del" data-id="${r.id}">${p.done ? 'נתתי לו — הסר' : 'מחק'}</button></li>`; }).join('') || '<li class="muted">עוד אין פרסים.</li>';
+  };
+  const saveRewards = async (rewards, okText) => {
+    const out = app.querySelector('.r-fb'), next = { ...cfg, rewards: rewards.slice(-5) };
+    try { await Cfg.set(next, remote ? watch : Sync.id()); cfg = next; drawRewards(); out.className = 'fb good r-fb'; out.textContent = okText; return true; }
+    catch { out.className = 'fb bad r-fb'; out.textContent = 'השמירה נכשלה — בדוק חיבור לאינטרנט.'; }
+  };
+  drawRewards();
+  app.querySelector('.r-save').onclick = async () => {
+    const text = app.querySelector('.r-text').value.trim();
+    if (!text) { const out = app.querySelector('.r-fb'); out.className = 'fb bad r-fb'; out.textContent = 'כתוב מה הפרס.'; return; }
+    if (await saveRewards([...rewardsOf(cfg), { id: Date.now(), text, stars: +app.querySelector('.r-stars').value, sheets: +app.querySelector('.r-sheets').value, base: s.stars }], 'נוסף ✓')) app.querySelector('.r-text').value = '';
+  };
+  app.querySelector('.r-list').onclick = e => {
+    const id = +e.target.closest('.del')?.dataset.id;
+    if (id) saveRewards(rewardsOf(cfg).filter(r => r.id !== id), 'הוסר ✓');
+  };
   app.querySelector('.t-save').onclick = async () => {
     const d = TASK_TYPES[typeSel.value], text = fld('.t-text input').value.trim();
     if (d.text && !text) { fld('.t-fb').className = 'fb bad t-fb'; fld('.t-fb').textContent = 'כתוב מה לעשות.'; return; }
@@ -411,14 +447,16 @@ function showInbox() {
   let box = document.getElementById('inbox');
   const hide = /^#\/(parent|sheet)/.test(location.hash), cfg = Cfg.get();
   const unread = hide ? [] : msgsOf(cfg).filter(m => m.t > S.seen), newTasks = hide ? [] : tasksOf(cfg).filter(k => k.id > S.seen && !taskProg(k, S).done);
-  if (!unread.length && !newTasks.length) return box?.remove();
+  const newRewards = hide ? [] : rewardsOf(cfg).filter(r => r.id > S.seen);
+  if (!unread.length && !newTasks.length && !newRewards.length) return box?.remove();
   if (!box) { box = document.createElement('div'); box.id = 'inbox'; box.className = 'inbox no-print'; box.setAttribute('role', 'alert'); document.body.appendChild(box); }
   box.innerHTML = `${unread.length ? `<b>💬 ${unread.length > 1 ? `${unread.length} הודעות חדשות` : 'הודעה חדשה'} בשבילך</b>
     ${unread.map(m => `<p>${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></p>`).join('')}` : ''}
     ${newTasks.length ? `<b>📋 ${newTasks.length > 1 ? `${newTasks.length} משימות חדשות` : 'משימה חדשה'}</b>
     ${newTasks.map(k => `<p>${taskLabel(k)} <small class="muted">${dueText(k)}</small></p>`).join('')}` : ''}
+    ${newRewards.map(r => `<b>🎁 פרס חדש!</b><p>${esc(r.text)} <small class="muted">· הפרטים בדף הבית</small></p>`).join('')}
     <button class="btn">קיבלתי 👍</button>`;
-  box.querySelector('button').onclick = () => { S.seen = Math.max(...unread.map(m => m.t), ...newTasks.map(k => k.id)); P.save(); box.remove(); };
+  box.querySelector('button').onclick = () => { S.seen = Math.max(...unread.map(m => m.t), ...newTasks.map(k => k.id), ...newRewards.map(r => r.id)); P.save(); box.remove(); };
 }
 // בודקים הודעות חדשות כל דקה (רק כשהדף מוצג), וגם כשחוזרים ללשונית. מופעל מה־load בסוף הקובץ
 /** דף שפתוח הרבה זמן: אם האתר עודכן מאז שנטען — מרעננים (רק בדף הבית / אזור ההורים, כדי לא לקטוע תרגיל) */
@@ -474,6 +512,10 @@ const dueText = k => k.due ? `עד ${new Date(k.due).toLocaleDateString('he', { 
 
 /** אצל התלמיד: משימה שהגיעה ליעד נרשמת כהושלמה, מקבלים נקודות ורואים הודעה */
 function checkTasks() {
+  for (const r of rewardsOf(Cfg.get())) if (!S.tdone[r.id] && rewardProg(r, S).done) {
+    S.tdone[r.id] = Date.now(); P.save(); toast(`🎁🏆 השגת את הפרס: ${esc(r.text)}! תראה את זה להורים`);
+    if (!location.hash.replace(/^#\/?/, '')) renderHome();
+  }
   const fresh = tasksOf(Cfg.get()).filter(k => !S.tdone[k.id] && taskProg(k, S).done);
   if (!fresh.length) return;
   for (const k of fresh) S.tdone[k.id] = Date.now();
@@ -575,6 +617,7 @@ ROUTES.sheet = id => {
         <div class="row">
           <button class="btn print">⬇️ הורדה כ־PDF / הדפסה</button>
           <button class="btn ghost again">🔄 ${st.done ? 'דף חדש' : 'דף אחר'}</button>
+          ${st.done && st.ok < qs.length ? `<a class="btn fix" href="#/sheetfix/${id}">🔁 תרגול תיקון: רק מה שטעית</a>` : ''}
         </div>
         <p class="muted">בחלון שנפתח בוחרים "שמירה כ־PDF" (Save as PDF) כדי להוריד, או מדפסת כדי להדפיס. הדף נשמר — אפשר לסגור ולחזור אליו.</p>
       </div>
@@ -628,6 +671,96 @@ ROUTES.sheet = id => {
     ROUTES.sheet(id); scrollTo(0, 0);
   };
 };
+
+/* תרגול תיקון אחרי דף עבודה: שאלות חדשות רק מסוגי השאלות שטעה בהם, על המסך ועם רמזים */
+ROUTES.sheetfix = id => {
+  const u = unitOf(id), def = CH[id], st = S.sheets[id];
+  if (!u || !def || !st?.done) return ROUTES.sheet(id);
+  document.title = `תרגול תיקון · ${u.title}`;
+  const qs = withSeed(st.seed, () => sheetItems(def)).flatMap(p => p.qs);
+  const gens = [...new Set(qs.filter((cur, i) => !sheetGrade(cur, st.given[i]).ok).map(cur => cur.g))];
+  if (!gens.length) return ROUTES.sheet(id);
+  const items = U.shuffle(gens.length <= 3 ? [...gens, ...gens] : gens).slice(0, 10).map(g => ({ u: id, g }));
+  app.innerHTML = `<a class="back" href="#/sheet/${id}">→ חזרה לדף העבודה</a><h1>🔁 תרגול תיקון</h1>
+    <p class="lead">${items.length} שאלות חדשות, רק מהסוגים שטעית בהם בדף. הפעם יש רמזים ופתרונות — המטרה היא להבין.</p><section class="panel set"></section>`;
+  runSet(app.querySelector('.set'), items, {
+    review: true,
+    onEnd(results) {
+      const ok = results.filter(r => r.res === 'ok').length, e = [...S.sheetLog].reverse().find(e => e.u === id && e.t === st.done);
+      if (e) { e.fix = [ok, results.length]; P.save(); }
+      app.querySelector('.set').innerHTML = `<h2>${ok === results.length ? 'תיקנת הכול! 🏆' : 'סיימת את התיקון 💪'}</h2>${resultLine(results)}
+        <div class="row"><a class="btn" href="#/sheet/${id}">חזרה לדף העבודה</a><a class="btn ghost" href="#/">לדף הבית</a></div>`;
+    },
+  });
+};
+
+/* ---------- פרסים שההורה קובע. קשה בכוונה: צריך גם כוכבים (נכון בניסיון ראשון; קל 1, בינוני 2, אתגר 4)
+   וגם דפי עבודה עם 16+ מתוך 20 בנושאים שונים — אי אפשר לצבור רק משאלות קלות. ---------- */
+const REWARD_LEVELS = [{ stars: 300, t: 'קשה — 300 כוכבים (בערך חודש של תרגול כמעט יומי)' }, { stars: 600, t: 'קשה מאוד — 600 כוכבים (בערך חודשיים)' }, { stars: 1000, t: 'אגדי — 1000 כוכבים (בערך חצי שנה)' }];
+const SHEET_PASS = 0.8;
+function rewardsOf(cfg) {
+  return (Array.isArray(cfg.rewards) ? cfg.rewards : []).filter(r => r && +r.id && typeof r.text === 'string')
+    .map(r => ({ id: +r.id, text: r.text.slice(0, 120), stars: Math.max(150, Math.min(5000, +r.stars || 300)), sheets: Math.max(1, Math.min(10, +r.sheets || 3)), base: +r.base || 0 }));
+}
+function rewardProg(r, s) {
+  const stars = Math.max(0, Math.min(r.stars, s.stars - r.base));
+  const sheets = Math.min(r.sheets, new Set(s.sheetLog.filter(e => e.t >= r.id && e.ok >= e.n * SHEET_PASS).map(e => e.u)).size);
+  return { stars, sheets, done: s.tdone[r.id] || (stars >= r.stars && sheets >= r.sheets ? -1 : 0) };
+}
+const rewardBars = (r, p) => `
+  <div class="bar"><span style="width:${100 * p.stars / r.stars}%"></span></div><small class="muted">⭐ ${p.stars} מתוך ${r.stars} כוכבים</small>
+  <div class="bar"><span style="width:${100 * p.sheets / r.sheets}%"></span></div><small class="muted">📝 ${p.sheets} מתוך ${r.sheets} דפי עבודה עם 16 נכונות לפחות, כל אחד בנושא אחר</small>`;
+function rewardsHome() {
+  const all = rewardsOf(Cfg.get());
+  if (!all.length) return '';
+  return `<section class="panel tasks"><h2>🎁 הפרסים שלי</h2><ul class="tlist">${all.map(r => { const p = rewardProg(r, S);
+    return `<li><div class="t-top"><b>${esc(r.text)}</b></div>${p.done ? '<p>🏆 השגת את הפרס! תראה את זה להורים.</p>' : rewardBars(r, p)}</li>`; }).join('')}</ul>
+    <p class="muted">איך צוברים כוכבים? רק תשובה נכונה בניסיון הראשון: שאלה קלה ⭐1, בינונית ⭐2, אתגר ⭐4.</p></section>`;
+}
+
+/* ---------- סיכום שבועי להורה: השבוע מול השבוע שעבר, מה השתפר / ירד, והצעות למשימות ---------- */
+function weekSummary(s, cfg) {
+  const now = Date.now(), win = k => Array.from({ length: 7 }, (_, i) => s.days[dayKey(now - (i + 7 * k) * DAY)] || { n: 0, ok: 0, sec: 0 });
+  const tot = w => ({ n: w.reduce((a, d) => a + d.n, 0), ok: w.reduce((a, d) => a + d.ok, 0), min: Math.round(w.reduce((a, d) => a + d.sec, 0) / 60), days: w.filter(d => d.n).length });
+  const a = tot(win(0)), b = tot(win(1));
+  const diff = (x, y, unit = '') => (!y ? '' : x === y ? '<small class="muted">כמו שבוע שעבר</small>' : `<small class="${x > y ? 'up' : 'down'}">${x > y ? '▲' : '▼'} ${Math.abs(x - y)}${unit} לעומת שבוע שעבר</small>`);
+  // דיוק לפי נושא בכל שבוע, מתוך יומן השאלות
+  const unitAcc = k => { const o = {}; for (const e of s.log) { if (e.t > now - 7 * (k + 1) * DAY && e.t <= now - 7 * k * DAY && unitOf(e.u)) { const x = o[e.u] ||= { n: 0, ok: 0 }; x.n++; if (e.res === 'ok') x.ok++; } } return o; };
+  const ua = unitAcc(0), ub = unitAcc(1), name = id => `${unitOf(id).emoji} ${fmtTitle(unitOf(id).title)}`;
+  const moved = Object.keys(ua).filter(id => ua[id].n >= 4 && ub[id]?.n >= 4).map(id => ({ id, d: acc(ua[id].ok, ua[id].n) - acc(ub[id].ok, ub[id].n) }));
+  const lines = [];
+  for (const m of moved.filter(m => m.d >= 10)) lines.push(`📈 השתפר ב${name(m.id)}: ${acc(ub[m.id].ok, ub[m.id].n)}% ← ${acc(ua[m.id].ok, ua[m.id].n)}%`);
+  for (const m of moved.filter(m => m.d <= -10)) lines.push(`📉 ירד ב${name(m.id)}: ${acc(ub[m.id].ok, ub[m.id].n)}% ← ${acc(ua[m.id].ok, ua[m.id].n)}%`);
+  const sheets = s.sheetLog.filter(e => e.t > now - 7 * DAY);
+  if (sheets.length) lines.push(`📝 הגיש ${sheets.length === 1 ? 'דף עבודה אחד' : sheets.length + ' דפי עבודה'}: ${sheets.map(e => `${e.ok}/${e.n}`).join(', ')}`);
+  const tasks = tasksOf(cfg), doneW = tasks.filter(k => s.tdone[k.id] > now - 7 * DAY).length, open = tasks.filter(k => !taskProg(k, s).done);
+  if (doneW) lines.push(`✅ השלים ${doneW === 1 ? 'משימה אחת' : doneW + ' משימות'} השבוע`);
+  const late = open.filter(k => k.due && k.due < dayKey()).length;
+  if (late) lines.push(`⚠️ ${late === 1 ? 'משימה אחת עברה' : late + ' משימות עברו'} את התאריך`);
+  // הצעות למשימות (עד 3), בלי להציע משימה שכבר פתוחה
+  const sug = [], has = (type, u) => open.some(k => k.type === type && (!u || k.u === u)), add = (why, task) => { if (sug.length < 3 && !has(task.type, task.u) && !sug.some(x => x.task.type === task.type && x.task.u === task.u)) sug.push({ why, task }); };
+  const idle = Math.round((new Date(dayKey()) - new Date(dayKey(s.log.at(-1)?.t || s.upd || now))) / DAY);
+  if (a.days < 3) add(idle >= 3 ? `לא תרגל כבר ${idle} ימים` : `תרגל רק ב־${a.days} ימים השבוע`, { type: 'daily', n: 3 });
+  const weak = Object.entries(ua).filter(([, x]) => x.n >= 4 && x.ok / x.n < 0.7).sort((p, q) => p[1].ok / p[1].n - q[1].ok / q[1].n)[0];
+  if (weak) add(`מתקשה ב${name(weak[0])} (${acc(weak[1].ok, weak[1].n)}% השבוע)`, { type: 'practice', u: weak[0], n: 10 });
+  const pin = unitOf(cfg.pin);
+  if (pin && CH[pin.id] && (s.video[pin.id] || 0) < 0.9) add(`עוד לא צפה בסרטון של מה שלומדים בכיתה`, { type: 'video', u: pin.id });
+  const ready = UNITS.find(u => CH[u.id] && (s.units[u.id]?.ok || 0) >= GOAL && !s.sheetLog.some(e => e.u === u.id));
+  if (ready) add(`סיים את התרגול ב${name(ready.id)} ועוד לא עשה דף עבודה`, { type: 'sheet', u: ready.id });
+  const failed = [...s.sheetLog].reverse().find(e => e.ok < e.n * SHEET_PASS && unitOf(e.u) && !s.sheetLog.some(f => f.u === e.u && f.t > e.t));
+  if (failed) add(`קיבל ${failed.ok}/${failed.n} בדף העבודה של ${name(failed.u)}`, { type: 'practice', u: failed.u, n: 10 });
+  const html = `<section class="panel week"><h2>🗓️ סיכום השבוע</h2>
+    <div class="tiles">
+      <div class="tile"><span>ימי תרגול</span><b>${a.days} מתוך 7</b>${diff(a.days, b.days)}</div>
+      <div class="tile"><span>שאלות</span><b>${a.n}</b>${diff(a.n, b.n)}</div>
+      <div class="tile"><span>דקות</span><b>${a.min}</b>${diff(a.min, b.min)}</div>
+      <div class="tile"><span>נכון בניסיון ראשון</span><b>${a.n ? acc(a.ok, a.n) + '%' : '—'}</b>${a.n && b.n ? diff(acc(a.ok, a.n), acc(b.ok, b.n), '%') : ''}</div>
+    </div>
+    ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${a.n ? 'אין שינוי בולט לעומת השבוע שעבר.' : 'לא תרגל השבוע.'}</p>`}
+    ${sug.length ? `<h3>💡 מה כדאי לתת לו עכשיו</h3><ul class="tlist">${sug.map((x, i) => `<li><div class="t-top"><span>${x.why} ← <b>${taskLabel({ n: 1, ...x.task })}</b></span><button class="btn small sug" data-i="${i}">➕ הוסף כמשימה</button></div></li>`).join('')}</ul>` : ''}
+  </section>`;
+  return { html, sug };
+}
 
 // אחרי הטעינה: מושכים מהענן (מכשיר אחר / הגדרות ההורה) ומרעננים את דף הבית אם משהו השתנה
 if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('load', async () => {

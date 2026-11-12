@@ -5,6 +5,7 @@
 const CLOUD = 'https://math8-5165e-default-rtdb.europe-west1.firebasedatabase.app';
 
 const DAY = 864e5;
+const STAR = { 1: 1, 2: 2, 3: 4 };
 const BOXES = [1, 3, 7, 14];    // ימים עד החזרה הבאה על מיומנות שטעו בה; אחרי 4 הצלחות בחזרה היא יוצאת מהמחברת
 const DAILY_N = 8;              // שאלות באימון יומי
 const STREAK_MIN = 5;           // שאלות ביום כדי שהיום ייחשב לרצף
@@ -17,7 +18,7 @@ const ls = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
-function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {}, sheets: {}, sheetLog: [] }; }
+function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {}, sheets: {}, sheetLog: [], stars: 0 }; }
 
 function loadState() {
   let s; try { s = JSON.parse(ls.get('math8') || '{}'); } catch { s = {}; }
@@ -43,7 +44,7 @@ function mergeState(a, b) {
   return {
     v: 2, upd: Math.max(a.upd || 0, b.upd || 0), units: maxMap(a.units, b.units), gens: maxMap(a.gens, b.gens),
     rev: newer.rev || {}, days: maxMap(a.days, b.days), log: log.slice(-300), diag, exams: exams.slice(-30), video,
-    pts: Math.max(a.pts || 0, b.pts || 0), seen: Math.max(a.seen || 0, b.seen || 0), tdone: { ...b.tdone, ...a.tdone },
+    pts: Math.max(a.pts || 0, b.pts || 0), stars: Math.max(a.stars || 0, b.stars || 0), seen: Math.max(a.seen || 0, b.seen || 0), tdone: { ...b.tdone, ...a.tdone },
     // דף עבודה פעיל לכל יחידה: לוקחים את זה שנגעו בו אחרון
     sheets: Object.fromEntries(Object.keys({ ...a.sheets, ...b.sheets }).map(u => [u, [a.sheets?.[u], b.sheets?.[u]].filter(Boolean).sort((p, q) => (q.done || q.t) - (p.done || p.t))[0]])),
     sheetLog: [...(a.sheetLog || []), ...(b.sheetLog || [])].filter((e, i, arr) => arr.findIndex(f => f.t === e.t) === i).sort((p, q) => p.t - q.t).slice(-40),
@@ -66,14 +67,14 @@ function cleanState(s) {
   const nums = o => Object.fromEntries(obj(o).filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [k, Object.fromEntries(obj(v).map(([f, x]) => [f, +x || 0]))]));
   const arr = a => (Array.isArray(a) ? a.filter(e => e && typeof e === 'object') : []);
   return {
-    v: 2, upd: +s.upd || 0, pts: +s.pts || 0, seen: +s.seen || 0, units: nums(s.units), gens: nums(s.gens), days: nums(s.days), rev: nums(s.rev),
+    v: 2, upd: +s.upd || 0, pts: +s.pts || 0, stars: +s.stars || 0, seen: +s.seen || 0, units: nums(s.units), gens: nums(s.gens), days: nums(s.days), rev: nums(s.rev),
     log: arr(s.log).map(e => ({ t: +e.t || 0, u: String(e.u), g: +e.g || 0, res: ['ok', 'retry'].includes(e.res) ? e.res : 'fail', q: typeof e.q === 'string' ? cleanHtml(e.q) : null })),
     exams: arr(s.exams).map(e => ({ t: +e.t || 0, ok: +e.ok || 0, n: +e.n || 0, units: Array.isArray(e.units) ? e.units.map(String) : [] })),
     video: Object.fromEntries(obj(s.video).map(([k, v]) => [k, +v || 0])),
     tdone: Object.fromEntries(obj(s.tdone).map(([k, v]) => [k, +v || 0])),
     sheets: Object.fromEntries(obj(s.sheets).filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [k, { seed: +v.seed || 1, t: +v.t || 0, done: +v.done || 0, ok: +v.ok || 0,
       given: Array.isArray(v.given) ? v.given.slice(0, 20).map(x => String(x ?? '').slice(0, 80)) : [] }])), // תשובה לשאלה = הערכים מופרדים ב־|
-    sheetLog: arr(s.sheetLog).map(e => ({ t: +e.t || 0, u: String(e.u), ok: +e.ok || 0, n: +e.n || 0, lv: Array.isArray(e.lv) ? e.lv.slice(0, 3).map(x => +x || 0) : [] })),
+    sheetLog: arr(s.sheetLog).map(e => ({ t: +e.t || 0, u: String(e.u), ok: +e.ok || 0, n: +e.n || 0, lv: Array.isArray(e.lv) ? e.lv.slice(0, 3).map(x => +x || 0) : [], fix: Array.isArray(e.fix) ? e.fix.slice(0, 2).map(x => +x || 0) : null })),
     diag: s.diag && typeof s.diag === 'object' ? { t: +s.diag.t || 0, res: Object.fromEntries(obj(s.diag.res).map(([k, v]) => [k, [+v?.[0] || 0, +v?.[1] || 0]])) } : null,
   };
 }
@@ -97,6 +98,8 @@ const P = {
     const d = S.days[dayKey()] || (S.days[dayKey()] = { n: 0, ok: 0, sec: 0 });
     d.n++; if (ok) d.ok++;
     S.pts += ok ? 2 : res === 'retry' ? 1 : 0;
+    // כוכבים (לפרסים של ההורה): רק נכון בניסיון ראשון, ושאלה קשה שווה יותר — קל 1, בינוני 2, אתגר 4
+    if (ok) S.stars += STAR[CH[u]?.exercises[g]?.level] || 0;
     const r = S.rev[key];
     if (!ok) S.rev[key] = { box: 0, due: now + DAY };
     else if (r && (review || r.due <= now)) {
@@ -185,7 +188,7 @@ if (typeof window !== 'undefined' && window.addEventListener) {
   window.addEventListener('pagehide', () => Sync.send(true));
 }
 
-/** הגדרות שההורה קובע: { pin: id של יחידה, exam: {date, units:[...]}, msgs: [{t, text}], tasks: [{id, type, u?, n?, text?, due?}] } */
+/** הגדרות שההורה קובע: { pin: id של יחידה, exam: {date, units:[...]}, msgs: [{t, text}], tasks: [{id, type, u?, n?, text?, due?}], rewards: [{id, text, stars, sheets, base}] } */
 const Cfg = {
   get() { try { return JSON.parse(ls.get('math8cfg') || '{}') || {}; } catch { return {}; } },
   async set(cfg, id = Sync.id()) {

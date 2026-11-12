@@ -168,6 +168,7 @@ function renderHome() {
     </header>
     ${msgsOf(cfg).slice(-3).reverse().map(m => `<div class="msg">💬 ${esc(m.text)} <small class="muted">· ${ago(m.t)}</small></div>`).join('')}
     ${tasksHome()}
+    ${rewardsHome()}
     <div class="acts">
       <a class="act main" href="#/daily"><span class="act-i">🏀</span><b>אימון יומי</b><span>${td.daily ? 'בוצע היום ✔ אפשר עוד סיבוב' : `${DAILY_N} שאלות${due ? ` · ${due} לחזרה` : ' · בערך 10 דקות'}`}</span></a>
       <a class="act" href="#/mistakes"><span class="act-i">📒</span><b>מחברת טעויות</b><span>${mist ? `${mist} דברים לחזק` : 'ריקה, כל הכבוד!'}</span></a>
