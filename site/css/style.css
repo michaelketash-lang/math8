@@ -317,3 +317,9 @@ legend { font-weight: 500; padding: 0 6px; }
 .fcard ul { margin: 6px 0; }
 .toast a { color: inherit; }
 @media print { .fcard { columns: 2; column-gap: 28px; font-size: 12px; } .fcard h1 { column-span: all; } }
+
+/* אזור ההורים: דפי עבודה */
+.sheets-p h2 small { font-size: .9rem; font-weight: 400; }
+.sh-row { border-top: 1px solid var(--line); padding: 8px 0; }
+.sh-row summary { cursor: pointer; }
+.sh-detail { margin-top: 10px; }

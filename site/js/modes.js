@@ -242,6 +242,22 @@ function dayChart(s) {
   </svg><p class="muted legend"><span class="sw c-ok"></span> נכון בניסיון ראשון <span class="sw c-all"></span> כל השאלות · מספר קטן מתחת = דקות תרגול · הימני = היום</p>`;
 }
 
+/** אזור ההורים: דפי העבודה — מה הוגש (ציון, לפי רמה, תרגול תיקון), פירוט שאלה־שאלה לדף האחרון בכל נושא, ודפים שהתחיל ולא הגיש */
+function sheetsPanel(s) {
+  const log = s.sheetLog.filter(e => unitOf(e.u)).slice().reverse(), name = u => `${unitOf(u).emoji} ${fmtTitle(unitOf(u).title)}`;
+  const open = Object.entries(s.sheets).filter(([u, st]) => unitOf(u) && CH[u] && !st.done);
+  const avg = log.length ? Math.round(log.reduce((a, e) => a + 100 * e.ok / e.n, 0) / log.length) : 0;
+  return `<section class="panel sheets-p"><h2>📝 דפי עבודה <small class="muted">${log.length ? `${log.length} הוגשו · ממוצע ${avg}%` : ''}</small></h2>
+    ${log.length ? log.slice(0, 12).map(e => { const st = s.sheets[e.u], has = st?.done === e.t && CH[e.u];
+      return `<details class="sh-row" ${has ? `data-u="${e.u}"` : ''}><summary><b>${e.ok} מתוך ${e.n}</b> · ${name(e.u)} <small class="muted">· ${ago(e.t)}${
+        e.lv.length === 3 ? ` · קל ${e.lv[0]}/4 · בינוני ${e.lv[1]}/10 · אתגר ${e.lv[2]}/6` : ''}${e.fix ? ` · תרגול תיקון: ${e.fix[0]}/${e.fix[1]}` : e.ok < e.n ? ' · עוד לא עשה תרגול תיקון' : ''}</small></summary>
+        <div class="sh-detail">${has ? '' : '<p class="muted">הפירוט שאלה־שאלה נשמר רק לדף האחרון בכל נושא (הוא כבר התחיל דף חדש בנושא הזה).</p>'}</div></details>`; }).join('')
+      : '<p class="muted">עוד לא הגיש דף עבודה.</p>'}
+    ${open.length ? `<p class="muted">דפים שהתחיל ועוד לא הגיש:</p><ul>${open.map(([u, st]) => `<li>${name(u)} <small class="muted">· נפתח ${ago(st.t)} · הקליד ${st.given.filter(Boolean).length} מתוך 20 תשובות</small></li>`).join('')}</ul>` : ''}
+    <p class="muted">לחיצה על דף פותחת את כל 20 השאלות: מה הוא ענה, מה נכון, ואיפה כנראה טעה.</p>
+  </section>`;
+}
+
 /** כמה שאלות עשה ביחידה בכל רמה: [{n, ok}] לקל / בינוני / אתגר (ok = נכון בניסיון ראשון) */
 function byLevel(s, u) {
   const out = LEVELS.map(() => ({ n: 0, ok: 0 }));
@@ -321,6 +337,7 @@ ROUTES.parent = async arg => {
       <div class="tile"><span>הצלחה בניסיון ראשון</span><b>${wn ? acc(wok, wn) + '%' : '—'}</b></div>
       <div class="tile"><span>דרגה</span><b>${rk.icon} ${rk.name}</b><small>${s.pts} נקודות</small></div>
     </div>
+    ${sheetsPanel(s)}
     <section class="panel"><h2>📅 שבועיים אחרונים</h2>${dayChart(s)}</section>
     <section class="panel"><h2>📚 התקדמות לפי נושא</h2>
       ${started.length ? `<div class="tbl"><table><thead><tr><th>נושא</th><th>התקדמות</th><th>הצלחה</th><th>קל</th><th>בינוני</th><th>אתגר</th><th>סרטון</th></tr></thead><tbody>
@@ -340,7 +357,6 @@ ROUTES.parent = async arg => {
     </section>
     <section class="panel"><h2>🩺 אבחון ומבחנים</h2>
       ${s.diag ? `<p>מבחן אבחון (${new Date(s.diag.t).toLocaleDateString('he')}): ${Object.entries(s.diag.res).map(([id, [ok, n]]) => `${unitOf(id)?.emoji || ''} ${ok}/${n}${ok < n * 0.67 ? ' ⚠️' : ''}`).join(' · ')}</p>` : '<p class="muted">עוד לא עשה מבחן אבחון.</p>'}
-      ${s.sheetLog.length ? `<p>📝 דפי עבודה שהגיש:</p><ul>${s.sheetLog.slice(-8).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ${unitOf(e.u)?.emoji || ''} ${fmtTitle(unitOf(e.u)?.title || e.u)} — <b>${e.ok} מתוך ${e.n}</b>${e.lv.length === 3 ? ` <small class="muted">(קל ${e.lv[0]}/4 · בינוני ${e.lv[1]}/10 · אתגר ${e.lv[2]}/6)</small>` : ''}${e.fix ? ` · תרגול תיקון: ${e.fix[0]}/${e.fix[1]}` : ''}</li>`).join('')}</ul>` : '<p class="muted">עוד לא הגיש דף עבודה.</p>'}
       ${s.exams.length ? `<ul>${s.exams.slice(-6).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ציון <b>${acc(e.ok, e.n)}</b> · ${e.units.map(id => unitOf(id)?.emoji || '').join(' ')}</li>`).join('')}</ul>` : '<p class="muted">עוד לא עשה מבחן תרגול.</p>'}
     </section>
     <section class="panel ctl"><h2>⚙️ הגדרות בשבילו</h2>
@@ -380,6 +396,17 @@ ROUTES.parent = async arg => {
   const showFields = () => { const d = TASK_TYPES[typeSel.value]; fld('.t-u').hidden = !d.unit; fld('.t-n').hidden = !d.n; fld('.t-text').hidden = !d.text; fld('.t-n input').value = d.n || ''; };
   typeSel.onchange = showFields; showFields();
   drawTasks();
+  // פירוט דף עבודה נבנה רק כשפותחים אותו (משחזרים את הדף מה־seed, כולל השרטוטים)
+  app.querySelectorAll('.sh-row[data-u]').forEach(d => d.addEventListener('toggle', () => {
+    if (!d.open || d.dataset.built) return;
+    d.dataset.built = 1;
+    const st = s.sheets[d.dataset.u], qs = withSeed(st.seed, () => sheetItems(CH[d.dataset.u])).flatMap(p => p.qs), box = d.querySelector('.sh-detail');
+    box.innerHTML = `<ol class="sh-qs">${qs.map((cur, i) => { const r = sheetGrade(cur, st.given[i]);
+      return `<li class="${r.ok ? 'r-ok' : 'r-bad'}"><div class="q">${r.ok ? '✅' : '❌'} <small class="muted">${LEVELS[cur.lv - 1].t}</small> ${cur.q}</div>${cur.mount ? '<div class="qviz"></div>' : ''}
+        <div class="sh-res">התשובה שלו: ${r.text}${r.ok ? '' : ` · התשובה הנכונה: ${cur.type === 'choice' ? `${ABC[cur.answer]}. ` : ''}${answerText(cur)}`}</div>${r.ok ? '' : diagHtml(r.diag)}</li>`; }).join('')}</ol>`;
+    withSeed(st.seed + 1, () => box.querySelectorAll('.sh-qs > li').forEach((li, i) => { try { qs[i].mount?.(li.querySelector('.qviz')); } catch (err) { console.error(err); } }));
+    U.math(box);
+  }));
   app.querySelector('.week').onclick = async e => {
     const b = e.target.closest('.sug');
     if (b && await saveTasks([...tasksOf(cfg), { id: Date.now(), ...wk.sug[+b.dataset.i].task }], 'נוספה ✓')) { b.disabled = true; b.textContent = 'נוספה ✓'; }
