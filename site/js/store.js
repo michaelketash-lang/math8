@@ -18,7 +18,7 @@ const ls = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
-function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {}, sheets: {}, sheetLog: [], stars: 0 }; }
+function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {}, sheets: {}, sheetLog: [], stars: 0, ft: { best: 0, n: 0 }, spot: { n: 0, ok: 0 }, feel: [] }; }
 
 function loadState() {
   let s; try { s = JSON.parse(ls.get('math8') || '{}'); } catch { s = {}; }
@@ -45,6 +45,9 @@ function mergeState(a, b) {
     v: 2, upd: Math.max(a.upd || 0, b.upd || 0), units: maxMap(a.units, b.units), gens: maxMap(a.gens, b.gens),
     rev: newer.rev || {}, days: maxMap(a.days, b.days), log: log.slice(-300), diag, exams: exams.slice(-30), video,
     pts: Math.max(a.pts || 0, b.pts || 0), stars: Math.max(a.stars || 0, b.stars || 0), seen: Math.max(a.seen || 0, b.seen || 0), tdone: { ...b.tdone, ...a.tdone },
+    ft: { best: Math.max(a.ft?.best || 0, b.ft?.best || 0), n: Math.max(a.ft?.n || 0, b.ft?.n || 0) },
+    spot: { n: Math.max(a.spot?.n || 0, b.spot?.n || 0), ok: Math.max(a.spot?.ok || 0, b.spot?.ok || 0) },
+    feel: [...(a.feel || []), ...(b.feel || [])].filter((e, i, arr) => arr.findIndex(f => f.t === e.t) === i).sort((p, q) => p.t - q.t).slice(-60),
     // דף עבודה פעיל לכל יחידה: לוקחים את זה שנגעו בו אחרון
     sheets: Object.fromEntries(Object.keys({ ...a.sheets, ...b.sheets }).map(u => [u, [a.sheets?.[u], b.sheets?.[u]].filter(Boolean).sort((p, q) => (q.done || q.t) - (p.done || p.t))[0]])),
     sheetLog: [...(a.sheetLog || []), ...(b.sheetLog || [])].filter((e, i, arr) => arr.findIndex(f => f.t === e.t) === i).sort((p, q) => p.t - q.t).slice(-40),
@@ -72,6 +75,8 @@ function cleanState(s) {
     exams: arr(s.exams).map(e => ({ t: +e.t || 0, ok: +e.ok || 0, n: +e.n || 0, units: Array.isArray(e.units) ? e.units.map(String) : [] })),
     video: Object.fromEntries(obj(s.video).map(([k, v]) => [k, +v || 0])),
     tdone: Object.fromEntries(obj(s.tdone).map(([k, v]) => [k, +v || 0])),
+    ft: { best: +s.ft?.best || 0, n: +s.ft?.n || 0 }, spot: { n: +s.spot?.n || 0, ok: +s.spot?.ok || 0 },
+    feel: arr(s.feel).map(e => ({ t: +e.t || 0, v: [1, 2, 3].includes(+e.v) ? +e.v : 2, w: String(e.w || '').slice(0, 40) })),
     sheets: Object.fromEntries(obj(s.sheets).filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [k, { seed: +v.seed || 1, t: +v.t || 0, done: +v.done || 0, ok: +v.ok || 0,
       given: Array.isArray(v.given) ? v.given.slice(0, 20).map(x => String(x ?? '').slice(0, 80)) : [] }])), // תשובה לשאלה = הערכים מופרדים ב־|
     sheetLog: arr(s.sheetLog).map(e => ({ t: +e.t || 0, u: String(e.u), ok: +e.ok || 0, n: +e.n || 0, lv: Array.isArray(e.lv) ? e.lv.slice(0, 3).map(x => +x || 0) : [], fix: Array.isArray(e.fix) ? e.fix.slice(0, 2).map(x => +x || 0) : null })),

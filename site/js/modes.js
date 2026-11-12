@@ -68,7 +68,7 @@ ROUTES.daily = () => {
       app.querySelector('.set').innerHTML = `<h2>🏆 סיימת את האימון!</h2>${resultLine(results)}
         ${first ? '<p class="goal">+10 נקודות בונוס על האימון היומי 🎉</p>' : ''}
         <p>רצף: <b>🔥 ${P.streak()}</b> ${P.streak() === 1 ? 'יום' : 'ימים'} · דרגה: <b>${P.rank().icon} ${P.rank().name}</b></p>
-        <div class="row"><a class="btn" href="#/">לדף הבית</a><button class="btn ghost again">עוד סיבוב</button></div>`;
+        ${feelAsk('daily')}<div class="row"><a class="btn" href="#/">לדף הבית</a><button class="btn ghost again">עוד סיבוב</button></div>`;
       app.querySelector('.again').onclick = () => ROUTES.daily();
     },
   });
@@ -186,7 +186,7 @@ ROUTES.exam = () => {
         const score = Math.round(100 * ok / results.length);
         box.innerHTML = `<h2>${score >= 85 ? '🏆' : score >= 60 ? '💪' : '📚'} ציון: ${score}</h2>
           <p>${ok} נכונות מתוך ${results.length}. ${score >= 85 ? 'מוכן למבחן!' : score >= 60 ? 'בדרך הנכונה. עבור על הטעויות ונסה שוב מחר.' : 'יש עוד מה לתרגל — זה בדיוק בשביל זה. הטעויות נכנסו למחברת ויחזרו באימון היומי.'}</p>
-          ${reviewList(results)}
+          ${reviewList(results)}${feelAsk('exam')}
           <div class="row"><a class="btn" href="#/">לדף הבית</a><button class="btn ghost again">מבחן נוסף</button></div>`;
         box.querySelector('.again').onclick = () => ROUTES.exam();
         U.math(box);
@@ -596,8 +596,8 @@ function sheetInput(cur, i, v = '') {
 /** התשובה שהוקלדה כטקסט, והאם היא נכונה (null = חסר) */
 function sheetGrade(cur, v = '') {
   const vals = v.split('|');
-  if (cur.type === 'choice') return { ok: vals[0] === '' ? null : checkVals(cur, [], +vals[0]), text: vals[0] === '' ? '—' : `${ABC[+vals[0]]}. ${cur.choices[+vals[0]] ?? ''}` };
-  return { ok: checkVals(cur, vals.map(parseNum)), text: `<bdi dir="ltr">${esc(cur.type === 'pair' ? `(${vals.join(', ')})` : vals.join(' , '))}</bdi>` };
+  if (cur.type === 'choice') return { ok: vals[0] === '' ? null : checkVals(cur, [], +vals[0]), text: vals[0] === '' ? '—' : `${ABC[+vals[0]]}. ${cur.choices[+vals[0]] ?? ''}`, diag: diagnose(cur, [], +vals[0]) };
+  return { ok: checkVals(cur, vals.map(parseNum)), diag: diagnose(cur, vals.map(parseNum)), text: `<bdi dir="ltr">${esc(cur.type === 'pair' ? `(${vals.join(', ')})` : vals.join(' , '))}</bdi>` };
 }
 ROUTES.sheet = id => {
   const u = unitOf(id), def = CH[id];
@@ -619,6 +619,7 @@ ROUTES.sheet = id => {
           <button class="btn ghost again">🔄 ${st.done ? 'דף חדש' : 'דף אחר'}</button>
           ${st.done && st.ok < qs.length ? `<a class="btn fix" href="#/sheetfix/${id}">🔁 תרגול תיקון: רק מה שטעית</a>` : ''}
         </div>
+        ${st.done && !S.feel.some(f => f.w === 'sheet:' + id && f.t >= st.done) ? feelAsk('sheet:' + id) : ''}
         <p class="muted">בחלון שנפתח בוחרים "שמירה כ־PDF" (Save as PDF) כדי להוריד, או מדפסת כדי להדפיס. הדף נשמר — אפשר לסגור ולחזור אליו.</p>
       </div>
     </div>
@@ -631,7 +632,7 @@ ROUTES.sheet = id => {
         <h2>${p.t} (${p.n} תרגילים)</h2>
         <ol class="sh-qs" start="${num + 1}">${p.qs.map(cur => { const r = res?.[num++];
           return `<li class="${r ? (r.ok ? 'r-ok' : 'r-bad') : ''}"><div class="q">${r ? (r.ok ? '✅ ' : '❌ ') : ''}${cur.q}</div>${cur.mount ? '<div class="qviz"></div>' : ''}
-            ${r ? `${cur.type === 'choice' ? sheetBlank(cur) : ''}<div class="sh-res">התשובה שלך: ${r.text}${r.ok ? '' : ` · התשובה הנכונה: ${cur.type === 'choice' ? `${ABC[cur.answer]}. ` : ''}${answerText(cur)}`}</div>
+            ${r ? `${cur.type === 'choice' ? sheetBlank(cur) : ''}<div class="sh-res">התשובה שלך: ${r.text}${r.ok ? '' : ` · התשובה הנכונה: ${cur.type === 'choice' ? `${ABC[cur.answer]}. ` : ''}${answerText(cur)}`}</div>${r.ok ? '' : diagHtml(r.diag)}
               <details class="no-print"><summary>👣 הפתרון המלא</summary><ol class="steps">${cur.steps.map(x => `<li>${x}</li>`).join('')}</ol></details>` : sheetBlank(cur)}</li>`; }).join('')}
         </ol>`).join('')}
     </article>
@@ -688,7 +689,7 @@ ROUTES.sheetfix = id => {
     onEnd(results) {
       const ok = results.filter(r => r.res === 'ok').length, e = [...S.sheetLog].reverse().find(e => e.u === id && e.t === st.done);
       if (e) { e.fix = [ok, results.length]; P.save(); }
-      app.querySelector('.set').innerHTML = `<h2>${ok === results.length ? 'תיקנת הכול! 🏆' : 'סיימת את התיקון 💪'}</h2>${resultLine(results)}
+      app.querySelector('.set').innerHTML = `<h2>${ok === results.length ? 'תיקנת הכול! 🏆' : 'סיימת את התיקון 💪'}</h2>${resultLine(results)}${feelAsk('fix:' + id)}
         <div class="row"><a class="btn" href="#/sheet/${id}">חזרה לדף העבודה</a><a class="btn ghost" href="#/">לדף הבית</a></div>`;
     },
   });
@@ -737,6 +738,10 @@ function weekSummary(s, cfg) {
   if (doneW) lines.push(`✅ השלים ${doneW === 1 ? 'משימה אחת' : doneW + ' משימות'} השבוע`);
   const late = open.filter(k => k.due && k.due < dayKey()).length;
   if (late) lines.push(`⚠️ ${late === 1 ? 'משימה אחת עברה' : late + ' משימות עברו'} את התאריך`);
+  const feels = s.feel.filter(f => f.t > now - 7 * DAY), where = w => { const [k, id] = w.split(':'); return unitOf(id) ? name(id) : { daily: 'אימון יומי', exam: 'מבחן תרגול', spot: 'מצא את הטעות' }[k] || ''; };
+  if (feels.length) lines.push(`💭 איך הוא הרגיש אחרי התרגול: ${[3, 2, 1].filter(v => feels.some(f => f.v === v)).map(v => `${FEEL[v]} ×${feels.filter(f => f.v === v).length}`).join(' · ')}${
+    feels.some(f => f.v === 1) ? ` <small class="muted">(לא הבין: ${[...new Set(feels.filter(f => f.v === 1).map(f => where(f.w)).filter(Boolean))].join(', ')})</small>` : ''}`);
+  const cardsOpen = cardUnits().filter(u => cardState(u, s).open).length;
   // הצעות למשימות (עד 3), בלי להציע משימה שכבר פתוחה
   const sug = [], has = (type, u) => open.some(k => k.type === type && (!u || k.u === u)), add = (why, task) => { if (sug.length < 3 && !has(task.type, task.u) && !sug.some(x => x.task.type === task.type && x.task.u === task.u)) sug.push({ why, task }); };
   const idle = Math.round((new Date(dayKey()) - new Date(dayKey(s.log.at(-1)?.t || s.upd || now))) / DAY);
@@ -757,6 +762,7 @@ function weekSummary(s, cfg) {
       <div class="tile"><span>נכון בניסיון ראשון</span><b>${a.n ? acc(a.ok, a.n) + '%' : '—'}</b>${a.n && b.n ? diff(acc(a.ok, a.n), acc(b.ok, b.n), '%') : ''}</div>
     </div>
     ${lines.length ? `<ul>${lines.map(l => `<li>${l}</li>`).join('')}</ul>` : `<p class="muted">${a.n ? 'אין שינוי בולט לעומת השבוע שעבר.' : 'לא תרגל השבוע.'}</p>`}
+    <p class="muted">⏱️ שיא בזריקות עונשין: <b>${s.ft.best}</b> סלים (${s.ft.n} משחקים) · 🕵️ מצא את הטעות: ${s.spot.ok} מתוך ${s.spot.n} בניסיון ראשון · 🃏 קלפים: ${cardsOpen} מתוך ${cardUnits().length}</p>
     ${sug.length ? `<h3>💡 מה כדאי לתת לו עכשיו</h3><ul class="tlist">${sug.map((x, i) => `<li><div class="t-top"><span>${x.why} ← <b>${taskLabel({ n: 1, ...x.task })}</b></span><button class="btn small sug" data-i="${i}">➕ הוסף כמשימה</button></div></li>`).join('')}</ul>` : ''}
   </section>`;
   return { html, sug };

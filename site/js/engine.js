@@ -175,6 +175,7 @@ function renderHome() {
       <a class="act" href="#/diag"><span class="act-i">🩺</span><b>מבחן אבחון</b><span>${S.diag ? `נעשה ב־${new Date(S.diag.t).toLocaleDateString('he')} · אפשר שוב` : 'מה כדאי לחזק? 12 שאלות'}</span></a>
       <a class="act" href="#/exam"><span class="act-i">📝</span><b>הכנה למבחן</b><span>${examDays >= 0 ? (examDays ? `המבחן בעוד ${examDays} ימים` : 'המבחן היום! בהצלחה') : 'בוחרים נושאים ומתרגלים'}</span></a>
     </div>
+    ${extrasHome()}
     ${pin ? `<h2 class="vol">📌 לומדים עכשיו בכיתה</h2><div class="grid">${unitCard(pin)}</div>` : ''}`;
   for (const [vol, name] of [['0', 'חימום: חזרה על הבסיס'], ['א', 'כרך א׳'], ['ב', 'כרך ב׳']]) {
     html += `<h2 class="vol">${name}</h2>${vol === '0' ? `<p class="muted sub">${S.diag ? 'לפי מבחן האבחון — ' + (weak.length ? 'כדאי להתחיל ביחידות המסומנות.' : 'הבסיס חזק! אפשר לדלג לכרך א׳.') : 'לא בטוח מאיפה להתחיל? עשה את <a href="#/diag">מבחן האבחון</a>.'}</p>` : ''}<div class="grid">`;
@@ -310,6 +311,34 @@ function checkVals(cur, vals, choiceIdx) {
   return vals.every(v => { const k = left.findIndex(a => match(v, a, tol)); if (k < 0) return false; left.splice(k, 1); return true; });
 }
 
+/** "איפה טעיתי?" — הסבר לתשובה שגויה, או ''. קודם טעויות נפוצות שהמחולל הגדיר:
+    mistakes: [{ v, why }] — v מספר (number) / [x, y] (pair) / אינדקס (choice); אחר כך זיהוי כללי (סימן הפוך, שבר הפוך...) */
+function diagnose(cur, vals, choiceIdx) {
+  const tol = cur.tol ?? 1e-6, a = cur.answer, eq = (x, y) => Number.isFinite(x) && match(x, y, tol);
+  for (const m of cur.mistakes || []) {
+    if (cur.type === 'choice' ? m.v === choiceIdx && m.v !== a
+      : cur.type === 'pair' ? Array.isArray(m.v) && eq(vals[0], m.v[0]) && eq(vals[1], m.v[1]) && !(eq(m.v[0], a[0]) && eq(m.v[1], a[1]))
+      : cur.type === 'number' && eq(vals[0], m.v) && !eq(m.v, a)) return m.why;
+  }
+  if (cur.type === 'pair') {
+    if (vals.some(isNaN)) return '';
+    if (eq(vals[0], a[1]) && eq(vals[1], a[0])) return 'המספרים נכונים, אבל הסדר הפוך: קודם כותבים את $x$ ואחר כך את $y$.';
+    if (eq(vals[0], a[0])) return 'ה־$x$ נכון! בדוק שוב רק את ה־$y$.';
+    if (eq(vals[1], a[1])) return 'ה־$y$ נכון! בדוק שוב רק את ה־$x$.';
+    return '';
+  }
+  if (cur.type !== 'number' || isNaN(vals[0]) || a === 0) return '';
+  const g = vals[0];
+  if (eq(g, -a)) return 'המספר נכון, אבל הסימן הפוך. בדוק שוב את הפלוסים והמינוסים.';
+  if (g !== 0 && eq(1 / g, a)) return 'נראה שהפכת את השבר. בדוק שוב: מה מחלקים במה?';
+  if ([10, 100, 0.1, 0.01].some(k => eq(g, a * k))) return 'הספרות נכונות, אבל הגודל לא: בדוק את הנקודה העשרונית, או אם שכחת לכפול או לחלק ב־100.';
+  if (eq(g, 2 * a)) return 'התשובה שלך בדיוק פי 2 מהנכונה. אולי שכחת לחלק ב־2?';
+  if (eq(g, a / 2)) return 'התשובה שלך בדיוק חצי מהנכונה. אולי שכחת לכפול ב־2?';
+  if (Number.isInteger(a) && Number.isInteger(g) && Math.abs(a) >= 10 && Math.abs(g - a) <= 2) return 'קרוב מאוד! כנראה טעות חישוב קטנה. בדוק שוב את החיבור והחיסור.';
+  return '';
+}
+const diagHtml = d => (d ? `<div class="diag">🔎 <b>איפה הטעות?</b> ${d}</div>` : '');
+
 /** שאלה אחת בתוך ex.
     opts: u, g (יחידה ומספר מחולל) · exam: ניסיון אחד, בלי רמזים ובלי משוב (מבחן / אבחון) · review: חזרה ממחברת הטעויות
           onDone(res, given): פעם אחת כשהשאלה נסגרת — res = 'ok' בניסיון ראשון · 'retry' אחרי טעות · 'fail' ראה פתרון / ויתר
@@ -390,8 +419,10 @@ function askOne(ex, cur, { u, g, exam = false, review = false, onDone = () => {}
     wrong++; P.add(u, false); onTry(false);
     btn?.classList.add('wrong');
     fb.className = 'fb bad';
-    if (wrong === 1) { fb.textContent = 'כמעט! נסה שוב. אם צריך, לחץ על 💡 רמז.'; hintBtn.click(); }
-    else { fb.textContent = 'לא נורא, ככה לומדים. הנה הפתרון צעד אחרי צעד:'; showSolution(); }
+    const diag = diagHtml(diagnose(cur, ins.map(i => parseNum(i.value)), choiceIdx));
+    if (wrong === 1) { fb.innerHTML = 'כמעט! נסה שוב. אם צריך, לחץ על 💡 רמז.' + diag; hintBtn.click(); }
+    else { fb.innerHTML = 'לא נורא, ככה לומדים. הנה הפתרון צעד אחרי צעד:' + diag; showSolution(); }
+    U.math(fb);
   }
 
   function showSolution() {

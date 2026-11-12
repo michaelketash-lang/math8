@@ -287,3 +287,33 @@ legend { font-weight: 500; padding: 0 6px; }
 .week h3 { margin: 14px 0 0; font-size: 1.05rem; }
 .sheet-bar .btn.fix { text-decoration: none; }
 .week .tile { background: var(--bg); box-shadow: none; }
+
+.diag { margin-top: 8px; padding: 8px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--ink); font-weight: 400; }
+
+/* תוספות: איך היה, מצא את הטעות, זריקות עונשין, קלפים, דף נוסחאות */
+.feel { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.spot-lines { display: grid; gap: 8px; margin: 12px 0; }
+.spot-line { display: flex; justify-content: space-between; gap: 12px; align-items: center; font: inherit; font-size: 1.15rem; padding: 12px 16px; border-radius: 12px; border: 2px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.spot-line:hover:enabled { border-color: var(--accent); }
+.spot-line.right { border-color: var(--bad); background: var(--bad-soft); }
+.spot-line.wrong { opacity: .55; }
+.spot-fix { margin: 8px 0; font-weight: 400; }
+.ft-top { display: flex; justify-content: space-between; font-size: 1.4rem; }
+.ft-q { font-size: 2.4rem; text-align: center; margin: 18px 0; min-height: 1.6em; }
+.ft-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ft-o { font-size: 1.6rem; padding: 16px; }
+.ft-fb { text-align: center; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin: 14px 0; }
+.pcard { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; padding: 12px 10px; border-radius: 14px; border: 3px solid hsl(var(--h, 0) 60% 45%); background: linear-gradient(160deg, hsl(var(--h, 0) 60% 45% / .28), var(--panel) 60%); color: var(--ink); text-decoration: none; box-shadow: var(--shadow); }
+.pcard.gold { border-color: #d4a017; background: linear-gradient(160deg, rgba(212,160,23,.45), var(--panel) 65%); }
+.pcard.locked { border: 2px dashed var(--line); background: var(--panel); opacity: .75; }
+.pc-top { display: flex; justify-content: space-between; width: 100%; font-weight: 700; }
+.pc-face { font-size: 2.6rem; line-height: 1.2; }
+.pc-pos { font-size: .85rem; color: var(--muted); }
+.pc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; width: 100%; margin: 6px 0; font-size: .7rem; color: var(--muted); }
+.pc-stats b { display: block; font-size: .95rem; color: var(--ink); }
+.fcard section { break-inside: avoid; margin-bottom: 14px; }
+.fcard h2 { margin-top: 14px; }
+.fcard ul { margin: 6px 0; }
+.toast a { color: inherit; }
+@media print { .fcard { columns: 2; column-gap: 28px; font-size: 12px; } .fcard h1 { column-span: all; } }

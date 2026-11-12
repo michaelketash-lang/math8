@@ -5,7 +5,7 @@ const ctx = { console, Math, JSON, setTimeout, document: { getElementById: () =>
 ctx.window.addEventListener = () => {}; ctx.addEventListener = () => {};
 vm.createContext(ctx);
 const run = f => vm.runInContext(fs.readFileSync(path.join(__dirname, f), 'utf8'), ctx, { filename: f });
-for (const f of ['js/store.js', 'js/engine.js', 'js/speak.js', 'js/guided.js', 'js/modes.js']) run(f);
+for (const f of ['js/store.js', 'js/engine.js', 'js/speak.js', 'js/guided.js', 'js/modes.js', 'js/extras.js']) run(f);
 vm.runInContext('globalThis.CH = CH; globalThis.UNITS = UNITS; globalThis.parseNum = parseNum;', ctx);
 const only = process.argv.slice(2);
 let bad = 0, total = 0;
@@ -31,6 +31,15 @@ for (const u of ctx.UNITS) {
       if ((e.type === 'pair' || e.type === 'set') && !(Array.isArray(e.answer) && e.answer.every(Number.isFinite))) errs.push('array answer ' + e.answer);
       if (!['number', 'choice', 'pair', 'set'].includes(e.type)) errs.push('type ' + e.type);
       if ((e.q.match(/\$/g) || []).length % 2) errs.push('odd $ in q: ' + e.q);
+      // טעויות נפוצות (אופציונלי): [{ v, why }] — v מספר / [x, y] / אינדקס של choice
+      if (e.mistakes !== undefined) {
+        if (!Array.isArray(e.mistakes) || e.type === 'set') errs.push('mistakes must be an array (not for type set)');
+        else for (const m of e.mistakes) {
+          const okV = e.type === 'choice' ? Number.isInteger(m.v) && m.v >= 0 && m.v < e.choices.length : e.type === 'pair' ? Array.isArray(m.v) && m.v.length === 2 && m.v.every(Number.isFinite) : Number.isFinite(m.v);
+          if (!okV) errs.push('mistake v ' + JSON.stringify(m.v));
+          if (typeof m.why !== 'string' || m.why.length < 8 || /NaN|undefined|Infinity|\[object/.test(m.why) || (m.why.match(/\$/g) || []).length % 2) errs.push('mistake why: ' + m.why);
+        }
+      }
       if (errs.length) { console.log(`✗ ${u.id} gen#${gi} (level ${g.level}): ${errs[0]}`); bad++; break; }
     }
   });
