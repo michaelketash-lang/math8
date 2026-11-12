@@ -242,6 +242,16 @@ function dayChart(s) {
   </svg><p class="muted legend"><span class="sw c-ok"></span> נכון בניסיון ראשון <span class="sw c-all"></span> כל השאלות · מספר קטן מתחת = דקות תרגול · הימני = היום</p>`;
 }
 
+/** כמה שאלות עשה ביחידה בכל רמה: [{n, ok}] לקל / בינוני / אתגר (ok = נכון בניסיון ראשון) */
+function byLevel(s, u) {
+  const out = LEVELS.map(() => ({ n: 0, ok: 0 }));
+  for (const [k, v] of Object.entries(s.gens)) {
+    const { u: ku, g } = keyParts(k), o = ku === u && out[(CH[u]?.exercises[g]?.level || 0) - 1];
+    if (o) { o.n += v.tries; o.ok += v.ok; }
+  }
+  return out;
+}
+
 ROUTES.parent = async arg => {
   document.title = 'אזור ההורים · מתמטיקה כיתה ח׳';
   if (arg) { ls.set('math8watch', arg); history.replaceState(null, '', '#/parent'); }
@@ -301,11 +311,11 @@ ROUTES.parent = async arg => {
     </div>
     <section class="panel"><h2>📅 שבועיים אחרונים</h2>${dayChart(s)}</section>
     <section class="panel"><h2>📚 התקדמות לפי נושא</h2>
-      ${started.length ? `<div class="tbl"><table><thead><tr><th>נושא</th><th>התקדמות</th><th>הצלחה</th><th>סרטון</th></tr></thead><tbody>
-        ${started.map(u => { const p = s.units[u.id] || { ok: 0, tries: 0 };
+      ${started.length ? `<div class="tbl"><table><thead><tr><th>נושא</th><th>התקדמות</th><th>הצלחה</th><th>קל</th><th>בינוני</th><th>אתגר</th><th>סרטון</th></tr></thead><tbody>
+        ${started.map(u => { const p = s.units[u.id] || { ok: 0, tries: 0 }, lv = byLevel(s, u.id);
           return `<tr><td>${u.emoji} ${fmtTitle(u.title)}</td><td><div class="bar"><span style="width:${Math.min(100, 100 * p.ok / GOAL)}%"></span></div><small>${Math.min(p.ok, GOAL)}/${GOAL}${p.ok >= GOAL ? ' ⭐' : ''}</small></td>
-            <td>${p.tries ? acc(p.ok, p.tries) + '%' : '—'}</td><td>${s.video[u.id] ? Math.round(100 * s.video[u.id]) + '%' : '—'}</td></tr>`; }).join('')}
-      </tbody></table></div><p class="muted">הצלחה = תשובות נכונות מתוך כל הניסיונות. סרטון = כמה מהסרטון נצפה.</p>` : '<p class="muted">עוד לא התחיל אף נושא.</p>'}
+            <td>${p.tries ? acc(p.ok, p.tries) + '%' : '—'}</td>${lv.map(x => `<td>${x.n ? `<b>${x.n}</b> <small class="muted">(${x.ok} ✓)</small>` : '—'}</td>`).join('')}<td>${s.video[u.id] ? Math.round(100 * s.video[u.id]) + '%' : '—'}</td></tr>`; }).join('')}
+      </tbody></table></div><p class="muted">הצלחה = תשובות נכונות מתוך כל הניסיונות. קל / בינוני / אתגר = כמה שאלות עשה בכל רמה (בתרגול, באימון היומי, במבחנים ובדפי העבודה), ובסוגריים כמה מהן נכונות בניסיון ראשון. סרטון = כמה מהסרטון נצפה.</p>` : '<p class="muted">עוד לא התחיל אף נושא.</p>'}
     </section>
     <section class="panel"><h2>🎯 איפה הכי קשה לו</h2>
       ${weakGens.length ? `<ul class="mlist">${weakGens.map(x => { const { u, g } = keyParts(x.k), q = lastQ(s, u, g);
@@ -318,6 +328,7 @@ ROUTES.parent = async arg => {
     </section>
     <section class="panel"><h2>🩺 אבחון ומבחנים</h2>
       ${s.diag ? `<p>מבחן אבחון (${new Date(s.diag.t).toLocaleDateString('he')}): ${Object.entries(s.diag.res).map(([id, [ok, n]]) => `${unitOf(id)?.emoji || ''} ${ok}/${n}${ok < n * 0.67 ? ' ⚠️' : ''}`).join(' · ')}</p>` : '<p class="muted">עוד לא עשה מבחן אבחון.</p>'}
+      ${s.sheetLog.length ? `<p>📝 דפי עבודה שהגיש:</p><ul>${s.sheetLog.slice(-8).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ${unitOf(e.u)?.emoji || ''} ${fmtTitle(unitOf(e.u)?.title || e.u)} — <b>${e.ok} מתוך ${e.n}</b>${e.lv.length === 3 ? ` <small class="muted">(קל ${e.lv[0]}/4 · בינוני ${e.lv[1]}/10 · אתגר ${e.lv[2]}/6)</small>` : ''}</li>`).join('')}</ul>` : '<p class="muted">עוד לא הגיש דף עבודה.</p>'}
       ${s.exams.length ? `<ul>${s.exams.slice(-6).reverse().map(e => `<li>${new Date(e.t).toLocaleDateString('he')}: ציון <b>${acc(e.ok, e.n)}</b> · ${e.units.map(id => unitOf(id)?.emoji || '').join(' ')}</li>`).join('')}</ul>` : '<p class="muted">עוד לא עשה מבחן תרגול.</p>'}
     </section>
     <section class="panel ctl"><h2>⚙️ הגדרות בשבילו</h2>
@@ -452,6 +463,7 @@ function taskProg(k, s) {
   const have = k.type === 'practice' ? s.log.filter(e => e.u === k.u && e.t >= k.id && e.res !== 'fail').length
     : k.type === 'video' ? Math.round(100 * (s.video[k.u] || 0))
     : k.type === 'daily' ? Object.entries(s.days).filter(([d, v]) => d >= dayKey(k.id) && v.daily).length
+    : k.type === 'sheet' ? +s.sheetLog.some(e => e.u === k.u && e.t >= k.id)
     : 0;
   const done = s.tdone[k.id] || (have >= goal ? -1 : 0); // -1 = הושלם אבל עוד לא נרשם אצל התלמיד
   return { have: done ? goal : Math.min(have, goal), goal, done, pct: done ? 100 : Math.round(100 * Math.min(have, goal) / goal), unit: k.type === 'video' ? '%' : '' };
@@ -483,7 +495,7 @@ function tasksHome() {
     ${open.length ? `<ul class="tlist">${open.map(k => { const p = taskProg(k, S), link = taskLink(k);
       return `<li><div class="t-top"><span>${taskLabel(k)}</span><small class="muted">${dueText(k)}</small></div>
         ${p.goal > 1 ? `<div class="bar"><span style="width:${p.pct}%"></span></div><small class="muted">${progText(p)}</small>` : ''}
-        <div class="row">${link ? `<a class="btn small" href="${link}">לביצוע ←</a>` : ''}${['sheet', 'free'].includes(k.type) ? `<button class="btn ghost small t-done" data-id="${k.id}">סיימתי ✓</button>` : ''}</div></li>`; }).join('')}</ul>`
+        <div class="row">${link ? `<a class="btn small" href="${link}">לביצוע ←</a>` : ''}${k.type === 'free' ? `<button class="btn ghost small t-done" data-id="${k.id}">סיימתי ✓</button>` : ''}</div></li>`; }).join('')}</ul>`
       : '<p>🏆 סיימת את כל המשימות! כל הכבוד!</p>'}
   </section>`;
 }
@@ -502,19 +514,26 @@ ROUTES.link = async id => {
   if (/^[0-9a-f]{32}$/.test(id || '')) { ls.set('math8id', id); await Sync.pull(); }
   location.hash = '#/';
 };
-/* ---------- דף עבודה להדפסה / PDF: 20 תרגילים חדשים בכל פעם, 4 קלים · 10 בינוניים · 6 קשים ---------- */
+/* ---------- דף עבודה: 20 תרגילים (4 קלים · 10 בינוניים · 6 אתגר). פותרים על דף, חוזרים ומקלידים תשובות,
+   ורק אחרי ההגשה רואים מה נכון ואת הפתרונות המלאים. הדף נשמר לפי seed (S.sheets[יחידה]) כדי שיחזור זהה. ---------- */
 const SHEET = [{ lv: 1, n: 4, t: 'קל' }, { lv: 2, n: 10, t: 'בינוני' }, { lv: 3, n: 6, t: 'אתגר' }];
 const ABC = 'אבגדהו';
+/** מריץ את fn כש־Math.random נותן סדרה קבועה לפי seed (mulberry32) — אותו seed, אותו דף */
+function withSeed(seed, fn) {
+  const real = Math.random; let a = seed >>> 0;
+  Math.random = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  try { return fn(); } finally { Math.random = real; }
+}
 function sheetItems(def) {
   const seen = new Set();
   return SHEET.map(s => {
-    const gs = U.shuffle(def.exercises.filter(e => e.level === s.lv));
+    const gs = U.shuffle(def.exercises.map((e, g) => ({ e, g })).filter(x => x.e.level === s.lv));
     return { ...s, qs: Array.from({ length: s.n }, (_, i) => {
       // מחוללים לפי הסבב, כדי שכל סוגי השאלות יופיעו; שאלה שכבר יצאה — מגרילים שוב
       let cur, k = 0;
-      do cur = gs[i % gs.length].gen(); while (seen.has(cur.q) && ++k < 20);
+      do cur = gs[i % gs.length].e.gen(); while (seen.has(cur.q) && ++k < 20);
       seen.add(cur.q);
-      return cur;
+      return { ...cur, g: gs[i % gs.length].g, lv: s.lv };
     }) };
   });
 }
@@ -524,48 +543,90 @@ function sheetBlank(cur) {
   if (cur.type === 'set') return `<div class="sh-line" dir="ltr">${Array(cur.n || cur.answer.length).fill('______').join(' , ')}</div>`;
   return '<div class="sh-line">תשובה: ____________</div>';
 }
+/** שדות להקלדת התשובה לשאלה i (v = מה שכבר הוקלד, מופרד ב־|) */
+function sheetInput(cur, i, v = '') {
+  const vals = v.split('|');
+  if (cur.type === 'choice') return cur.choices.map((_, c) => `<label class="sh-pick"><input type="radio" name="sq${i}" value="${c}" ${vals[0] === String(c) ? 'checked' : ''}> ${ABC[c]}</label>`).join('');
+  const n = cur.type === 'pair' ? 2 : cur.type === 'set' ? (cur.n || cur.answer.length) : 1;
+  const ins = Array.from({ length: n }, (_, k) => `<input class="in" inputmode="decimal" autocomplete="off" aria-label="תשובה לשאלה ${i + 1}" value="${esc(vals[k] || '')}">`).join(' , ');
+  return `<span dir="ltr">${cur.type === 'pair' ? `( ${ins} )` : ins}</span>`;
+}
+/** התשובה שהוקלדה כטקסט, והאם היא נכונה (null = חסר) */
+function sheetGrade(cur, v = '') {
+  const vals = v.split('|');
+  if (cur.type === 'choice') return { ok: vals[0] === '' ? null : checkVals(cur, [], +vals[0]), text: vals[0] === '' ? '—' : `${ABC[+vals[0]]}. ${cur.choices[+vals[0]] ?? ''}` };
+  return { ok: checkVals(cur, vals.map(parseNum)), text: `<bdi dir="ltr">${esc(cur.type === 'pair' ? `(${vals.join(', ')})` : vals.join(' , '))}</bdi>` };
+}
 ROUTES.sheet = id => {
   const u = unitOf(id), def = CH[id];
   if (!u || !def) return renderHome();
   document.title = `דף עבודה · ${u.title}`;
-  const parts = sheetItems(def);
+  const fresh = () => { S.sheets[id] = { seed: U.R(10000, 99999), t: Date.now(), done: 0, ok: 0, given: [] }; P.save(); };
+  if (!S.sheets[id]) fresh();
+  const st = S.sheets[id], parts = withSeed(st.seed, () => sheetItems(def)), qs = parts.flatMap(p => p.qs);
+  const res = st.done ? qs.map((cur, i) => sheetGrade(cur, st.given[i])) : null;
   let num = 0;
   app.innerHTML = `
     <div class="no-print">
       <a class="back" href="#/ch/${id}">→ חזרה ליחידה</a>
       <div class="panel sheet-bar">
-        <p class="lead">20 תרגילים לפתור על דף: 4 קלים, 10 בינוניים ו־6 אתגר. בכל פעם נוצר דף חדש.</p>
+        ${st.done ? `<p class="lead">הדף נבדק: <b>${st.ok} מתוך ${qs.length}</b> נכונות ${st.ok >= 17 ? '🏆' : st.ok >= 12 ? '💪' : ''}. ליד כל שאלה מופיע מה ענית, התשובה הנכונה והפתרון המלא.</p>`
+          : `<p class="lead">20 תרגילים לפתור על דף: 4 קלים, 10 בינוניים ו־6 אתגר. אחרי שפתרת, חזור לכאן והקלד את התשובות <a href="#sh-form" data-jump>בתחתית הדף</a> — ואז תראה מה נכון ואת הפתרונות המלאים.</p>`}
         <div class="row">
           <button class="btn print">⬇️ הורדה כ־PDF / הדפסה</button>
-          <button class="btn ghost again">🔄 דף אחר</button>
-          <label class="chk"><input type="checkbox" class="with-ans"> לצרף דף תשובות בסוף</label>
+          <button class="btn ghost again">🔄 ${st.done ? 'דף חדש' : 'דף אחר'}</button>
         </div>
-        <p class="muted">בחלון שנפתח בוחרים "שמירה כ־PDF" (Save as PDF) כדי להוריד, או מדפסת כדי להדפיס.</p>
+        <p class="muted">בחלון שנפתח בוחרים "שמירה כ־PDF" (Save as PDF) כדי להוריד, או מדפסת כדי להדפיס. הדף נשמר — אפשר לסגור ולחזור אליו.</p>
       </div>
     </div>
     <article class="sheet">
       <header class="sh-head">
         <h1>${u.emoji} דף עבודה: ${fmtTitle(u.title)}</h1>
-        <div class="sh-name">שם: ________________ &nbsp; תאריך: ____________ &nbsp; ציון: ______ / 20</div>
+        <div class="sh-name">שם: ________________ &nbsp; תאריך: ____________ &nbsp; ציון: ${st.done ? `<b>${st.ok}</b>` : '______'} / 20 &nbsp; <span class="muted">דף מס׳ ${st.seed}</span></div>
       </header>
       ${parts.map(p => `
         <h2>${p.t} (${p.n} תרגילים)</h2>
-        <ol class="sh-qs" start="${num + 1}">${p.qs.map(cur => (num++, `
-          <li><div class="q">${cur.q}</div>${cur.mount ? '<div class="qviz"></div>' : ''}${sheetBlank(cur)}</li>`)).join('')}
+        <ol class="sh-qs" start="${num + 1}">${p.qs.map(cur => { const r = res?.[num++];
+          return `<li class="${r ? (r.ok ? 'r-ok' : 'r-bad') : ''}"><div class="q">${r ? (r.ok ? '✅ ' : '❌ ') : ''}${cur.q}</div>${cur.mount ? '<div class="qviz"></div>' : ''}
+            ${r ? `${cur.type === 'choice' ? sheetBlank(cur) : ''}<div class="sh-res">התשובה שלך: ${r.text}${r.ok ? '' : ` · התשובה הנכונה: ${cur.type === 'choice' ? `${ABC[cur.answer]}. ` : ''}${answerText(cur)}`}</div>
+              <details class="no-print"><summary>👣 הפתרון המלא</summary><ol class="steps">${cur.steps.map(x => `<li>${x}</li>`).join('')}</ol></details>` : sheetBlank(cur)}</li>`; }).join('')}
         </ol>`).join('')}
-      <section class="sh-ans" hidden>
-        <h2>✅ תשובות</h2>
-        <ol>${parts.flatMap(p => p.qs).map(cur => `<li>${cur.type === 'choice' ? `<b>${ABC[cur.answer]}.</b> ` : ''}${answerText(cur)}</li>`).join('')}</ol>
-      </section>
-    </article>`;
-  const qs = parts.flatMap(p => p.qs);
-  app.querySelectorAll('.sh-qs > li').forEach((li, i) => {
+    </article>
+    ${st.done ? '' : `<section class="panel no-print" id="sh-form">
+      <h2>✍️ סיימת לפתור? הקלד כאן את התשובות</h2>
+      <p class="muted">צריך למלא את כל 20 התשובות (אם לא הצלחת — נחש). מה שהקלדת נשמר גם אם תצא מהדף. אפשר לכתוב שבר כמו 3/4.</p>
+      <ol class="sh-form">${qs.map((cur, i) => `<li>${sheetInput(cur, i, st.given[i])}</li>`).join('')}</ol>
+      <div class="row"><button class="btn submit">בדוק את הדף ←</button></div><div class="fb" aria-live="polite"></div>
+    </section>`}`;
+  withSeed(st.seed + 1, () => app.querySelectorAll('.sh-qs > li').forEach((li, i) => {
     try { qs[i].mount?.(li.querySelector('.qviz')); } catch (err) { console.error(err); }
-  });
-  app.querySelector('.with-ans').onchange = e => { app.querySelector('.sh-ans').hidden = !e.target.checked; };
+  }));
+  app.querySelector('[data-jump]')?.addEventListener('click', e => { e.preventDefault(); app.querySelector('#sh-form').scrollIntoView({ behavior: 'smooth' }); });
   app.querySelector('.print').onclick = () => print();
-  app.querySelector('.again').onclick = () => ROUTES.sheet(id);
+  app.querySelector('.again').onclick = () => {
+    if (!st.done && st.given.some(Boolean) && !confirm('להחליף לדף אחר? התשובות שהקלדת לדף הזה יימחקו.')) return;
+    fresh(); ROUTES.sheet(id); scrollTo(0, 0);
+  };
   U.math(app);
+  if (st.done) return;
+
+  const form = app.querySelector('.sh-form'), rows = [...form.children];
+  const read = () => rows.map((li, i) => (qs[i].type === 'choice' ? li.querySelector('input:checked')?.value ?? '' : [...li.querySelectorAll('.in')].map(x => x.value.trim()).join('|')));
+  form.addEventListener('change', () => { st.given = read(); P.save(); });
+  app.querySelector('.submit').onclick = () => {
+    st.given = read();
+    const graded = qs.map((cur, i) => sheetGrade(cur, st.given[i])), missing = graded.flatMap((r, i) => (r.ok === null ? [i + 1] : []));
+    rows.forEach((li, i) => li.classList.toggle('miss', graded[i].ok === null));
+    if (missing.length) {
+      const fb = app.querySelector('#sh-form .fb'); fb.className = 'fb warn';
+      fb.textContent = `חסרה תשובה (או שהיא לא מספר) ${missing.length === 1 ? 'בשאלה' : 'בשאלות'}: ${missing.join(', ')}`;
+      return P.save();
+    }
+    st.done = Date.now(); st.ok = graded.filter(r => r.ok).length;
+    S.sheetLog.push({ t: st.done, u: id, ok: st.ok, n: qs.length, lv: SHEET.map(s => qs.filter((cur, i) => cur.lv === s.lv && graded[i].ok).length) });
+    qs.forEach((cur, i) => { P.add(id, graded[i].ok); P.done({ u: id, g: cur.g, res: graded[i].ok ? 'ok' : 'fail', q: cur.q }); });
+    ROUTES.sheet(id); scrollTo(0, 0);
+  };
 };
 
 // אחרי הטעינה: מושכים מהענן (מכשיר אחר / הגדרות ההורה) ומרעננים את דף הבית אם משהו השתנה

@@ -298,6 +298,17 @@ function answerText(cur) {
   return `$${U.num(cur.answer)}$`;
 }
 
+/** האם התשובה נכונה. vals = המספרים שהוקלדו (choice: choiceIdx). null = חסר מספר / לא מספר */
+function checkVals(cur, vals, choiceIdx) {
+  const tol = cur.tol ?? 1e-6;
+  if (cur.type === 'choice') return choiceIdx === cur.answer;
+  if (vals.some(isNaN)) return null;
+  if (cur.type === 'number') return match(vals[0], cur.answer, tol);
+  if (cur.type === 'pair') return match(vals[0], cur.answer[0], tol) && match(vals[1], cur.answer[1], tol);
+  const left = [...cur.answer]; // set
+  return vals.every(v => { const k = left.findIndex(a => match(v, a, tol)); if (k < 0) return false; left.splice(k, 1); return true; });
+}
+
 /** שאלה אחת בתוך ex.
     opts: u, g (יחידה ומספר מחולל) · exam: ניסיון אחד, בלי רמזים ובלי משוב (מבחן / אבחון) · review: חזרה ממחברת הטעויות
           onDone(res, given): פעם אחת כשהשאלה נסגרת — res = 'ok' בניסיון ראשון · 'retry' אחרי טעות · 'fail' ראה פתרון / ויתר
@@ -345,16 +356,7 @@ function askOne(ex, cur, { u, g, exam = false, review = false, onDone = () => {}
     const v = ins.map(i => i.value.trim());
     return cur.type === 'pair' ? `(${v.join(', ')})` : v.join(' , ');
   }
-  function isRight(choiceIdx) {
-    const vals = ins.map(i => parseNum(i.value));
-    const tol = cur.tol ?? 1e-6;
-    if (cur.type === 'choice') return choiceIdx === cur.answer;
-    if (vals.some(isNaN)) return null;
-    if (cur.type === 'number') return match(vals[0], cur.answer, tol);
-    if (cur.type === 'pair') return match(vals[0], cur.answer[0], tol) && match(vals[1], cur.answer[1], tol);
-    const left = [...cur.answer]; // set
-    return vals.every(v => { const k = left.findIndex(a => match(v, a, tol)); if (k < 0) return false; left.splice(k, 1); return true; });
-  }
+  const isRight = choiceIdx => checkVals(cur, ins.map(i => parseNum(i.value)), choiceIdx);
   function nextBtn(fb) {
     if (!next || fb.querySelector('.next')) return;
     fb.insertAdjacentHTML('beforeend', ` <button class="btn next">${nextLabel}</button>`);

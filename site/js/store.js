@@ -17,7 +17,7 @@ const ls = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
-function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {} }; }
+function blankState() { return { v: 2, upd: 0, units: {}, gens: {}, rev: {}, days: {}, log: [], diag: null, exams: [], video: {}, pts: 0, seen: 0, tdone: {}, sheets: {}, sheetLog: [] }; }
 
 function loadState() {
   let s; try { s = JSON.parse(ls.get('math8') || '{}'); } catch { s = {}; }
@@ -44,6 +44,9 @@ function mergeState(a, b) {
     v: 2, upd: Math.max(a.upd || 0, b.upd || 0), units: maxMap(a.units, b.units), gens: maxMap(a.gens, b.gens),
     rev: newer.rev || {}, days: maxMap(a.days, b.days), log: log.slice(-300), diag, exams: exams.slice(-30), video,
     pts: Math.max(a.pts || 0, b.pts || 0), seen: Math.max(a.seen || 0, b.seen || 0), tdone: { ...b.tdone, ...a.tdone },
+    // דף עבודה פעיל לכל יחידה: לוקחים את זה שנגעו בו אחרון
+    sheets: Object.fromEntries(Object.keys({ ...a.sheets, ...b.sheets }).map(u => [u, [a.sheets?.[u], b.sheets?.[u]].filter(Boolean).sort((p, q) => (q.done || q.t) - (p.done || p.t))[0]])),
+    sheetLog: [...(a.sheetLog || []), ...(b.sheetLog || [])].filter((e, i, arr) => arr.findIndex(f => f.t === e.t) === i).sort((p, q) => p.t - q.t).slice(-40),
   };
 }
 
@@ -68,6 +71,9 @@ function cleanState(s) {
     exams: arr(s.exams).map(e => ({ t: +e.t || 0, ok: +e.ok || 0, n: +e.n || 0, units: Array.isArray(e.units) ? e.units.map(String) : [] })),
     video: Object.fromEntries(obj(s.video).map(([k, v]) => [k, +v || 0])),
     tdone: Object.fromEntries(obj(s.tdone).map(([k, v]) => [k, +v || 0])),
+    sheets: Object.fromEntries(obj(s.sheets).filter(([, v]) => v && typeof v === 'object').map(([k, v]) => [k, { seed: +v.seed || 1, t: +v.t || 0, done: +v.done || 0, ok: +v.ok || 0,
+      given: Array.isArray(v.given) ? v.given.slice(0, 20).map(x => String(x ?? '').slice(0, 80)) : [] }])), // תשובה לשאלה = הערכים מופרדים ב־|
+    sheetLog: arr(s.sheetLog).map(e => ({ t: +e.t || 0, u: String(e.u), ok: +e.ok || 0, n: +e.n || 0, lv: Array.isArray(e.lv) ? e.lv.slice(0, 3).map(x => +x || 0) : [] })),
     diag: s.diag && typeof s.diag === 'object' ? { t: +s.diag.t || 0, res: Object.fromEntries(obj(s.diag.res).map(([k, v]) => [k, [+v?.[0] || 0, +v?.[1] || 0]])) } : null,
   };
 }
